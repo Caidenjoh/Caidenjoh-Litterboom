@@ -1,7 +1,12 @@
 package com.example.litterboom.data
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+
 object CurrentUserManager {
-    var currentUser: User? = null
+
+    var currentUser by mutableStateOf<User?>(null)
         private set
 
     fun login(user: User) {
@@ -11,6 +16,8 @@ object CurrentUserManager {
     fun logout() {
         currentUser = null
     }
+
+    fun isLoggedIn(): Boolean = currentUser != null
 
     fun isAdmin(): Boolean = currentUser?.role == "Admin"
 }

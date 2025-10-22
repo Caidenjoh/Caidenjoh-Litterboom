@@ -16,24 +16,26 @@ val Avenir = FontFamily(
     Font(R.font.avenir_light, FontWeight.Normal)
 )
 
+val Sansation = FontFamily(
+    Font(R.font.sansation_bold, FontWeight.Bold)
+)
+
+
 val AppTypography = Typography(
-    // For large headings
     displayLarge = TextStyle(
-        fontFamily = LuloClean,
+        fontFamily = Sansation,
         fontWeight = FontWeight.Bold,
         fontSize = 32.sp,
         lineHeight = 40.sp,
         letterSpacing = 0.sp
     ),
-    // For smaller headings
     headlineLarge = TextStyle(
-        fontFamily = LuloClean,
+        fontFamily = Sansation,
         fontWeight = FontWeight.Bold,
         fontSize = 24.sp,
         lineHeight = 32.sp,
         letterSpacing = 0.sp
     ),
-    // For all body text, paragraphs, and input field labels
     bodyLarge = TextStyle(
         fontFamily = Avenir,
         fontWeight = FontWeight.Normal,
@@ -41,7 +43,6 @@ val AppTypography = Typography(
         lineHeight = 24.sp,
         letterSpacing = 0.5.sp
     ),
-    // For button text and other small, important text
     labelLarge = TextStyle(
         fontFamily = Avenir,
         fontWeight = FontWeight.Normal,

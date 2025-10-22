@@ -9,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
@@ -20,15 +21,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
+import com.example.litterboom.WasteWorkerActivity
 import com.example.litterboom.data.AppDatabase
 import com.example.litterboom.data.Event
 import com.example.litterboom.ui.theme.LitterboomTheme
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.jvm.java
 
 class EventSelectionActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,13 +46,14 @@ class EventSelectionActivity : ComponentActivity() {
     }
 }
 
+
 @Composable
 fun EventSelectionScreen() {
     val context = LocalContext.current
     var events by remember { mutableStateOf<List<Event>>(emptyList()) }
 
     LaunchedEffect(Unit) {
-        events = AppDatabase.getDatabase(context).eventDao().getAllEvents()
+        events = AppDatabase.getDatabase(context).eventDao().getOpenEvents()
     }
 
     Box(
@@ -95,10 +100,8 @@ fun EventSelectionScreen() {
                                 val intent = Intent(context, BagEntryActivity::class.java).apply {
                                     putExtra("EVENT_ID", event.id)
                                     putExtra("SELECTED_EVENT_NAME", event.name)
-                                    flags = Intent.FLAG_ACTIVITY_FORWARD_RESULT
                                 }
                                 context.startActivity(intent)
-                                (context as? Activity)?.finish()
                             },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surface)

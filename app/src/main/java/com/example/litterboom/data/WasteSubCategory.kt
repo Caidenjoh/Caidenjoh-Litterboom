@@ -17,5 +17,6 @@ data class WasteSubCategory(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
     val name: String,
-    val categoryId: Int
+    val categoryId: Int,
+    val isActive: Boolean = true
 )

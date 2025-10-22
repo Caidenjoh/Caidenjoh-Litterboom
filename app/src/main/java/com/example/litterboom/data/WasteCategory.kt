@@ -7,5 +7,6 @@ import androidx.room.PrimaryKey
 data class WasteCategory(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
-    val name: String
+    val name: String,
+    val isActive: Boolean = true
 )

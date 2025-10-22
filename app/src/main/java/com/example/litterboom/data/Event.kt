@@ -9,5 +9,6 @@ data class Event(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val name: String,
     val date: Long,
-    val location: String
+    val location: String,
+    val isOpen: Boolean = true
 )

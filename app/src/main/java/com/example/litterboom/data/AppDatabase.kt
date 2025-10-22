@@ -9,19 +9,25 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-@Database(entities = [User::class, Event::class, WasteCategory::class, WasteSubCategory::class, LoggingField::class,
-          SubCategoryField::class, Bag::class], version = 9, exportSchema = false)
-
+@Database(
+    entities = [
+        User::class, Event::class, WasteCategory::class, WasteSubCategory::class,
+        LoggingField::class, SubCategoryField::class, Bag::class,
+        ItemPhoto::class, LoggedWaste::class
+    ],
+    version = 14,
+    exportSchema = false
+)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun userDao(): UserDao
     abstract fun eventDao(): EventDao
     abstract fun wasteDao(): WasteDao
     abstract fun bagDao(): BagDao
+    abstract fun loggedWasteDao(): LoggedWasteDao
 
     companion object {
-        @Volatile
-        private var INSTANCE: AppDatabase? = null
+        @Volatile private var INSTANCE: AppDatabase? = null
 
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
@@ -52,11 +58,7 @@ abstract class AppDatabase : RoomDatabase() {
         private suspend fun seedAdminUser(userDao: UserDao) {
             val existingAdmin = userDao.getUser("admin", "admin")
             if (existingAdmin == null) {
-                val adminUser = User(
-                    username = "admin",
-                    password = "admin",
-                    role = "Admin"
-                )
+                val adminUser = User(username = "admin", password = "admin", role = "Admin")
                 userDao.insertUser(adminUser)
             }
         }

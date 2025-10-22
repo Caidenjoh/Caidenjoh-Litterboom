@@ -7,5 +7,6 @@ import androidx.room.PrimaryKey
 data class LoggingField(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
-    val fieldName: String
+    val fieldName: String,
+    val isActive: Boolean = true
 )

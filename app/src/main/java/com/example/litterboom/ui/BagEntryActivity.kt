@@ -187,40 +187,47 @@ fun BagEntryScreen(eventId: Int, eventName: String) {
                     Text("Add Bag")
                 }
             }
-
-            //bag list
+            //bag list with white block background
             Text("Bag Entries", style = MaterialTheme.typography.titleMedium, color = Color.White)
-            LazyColumn(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color.White)
+                    .padding(8.dp)
             ) {
-                if (bags.isEmpty()) {
-                    item {
-                        Text("No bags entered.", modifier = Modifier.padding(8.dp), color = Color.White)
-                    }
-                } else {
-                    items(bags) { bag ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                        ) {
-                            Row(
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (bags.isEmpty()) {
+                        item {
+                            Text("No bags entered.", modifier = Modifier.padding(8.dp), color = Color.Black)
+                        }
+                    } else {
+                        items(bags) { bag ->
+                            Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(16.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                    .padding(horizontal = 8.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                             ) {
-                                Text("Bag ${bag.bagNumber}", color = MaterialTheme.colorScheme.primary)
-                                Text("${bag.weight} kg", color = MaterialTheme.colorScheme.primary)
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("Bag ${bag.bagNumber}", color = MaterialTheme.colorScheme.primary)
+                                    Text("${bag.weight} kg", color = MaterialTheme.colorScheme.primary)
+                                }
                             }
                         }
                     }
                 }
             }
+
 
             //total summary
             val totalBags = bags.size

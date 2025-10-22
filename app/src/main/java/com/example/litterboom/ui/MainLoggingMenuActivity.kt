@@ -19,7 +19,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,7 +27,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import com.example.litterboom.R
@@ -56,12 +54,10 @@ fun MainLoggingMenuScreen() {
     val activity = context as? Activity
     var selectedCategory by remember { mutableStateOf<WasteCategory?>(null) }
 
-
     val fieldLoggingLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
-
             activity?.setResult(Activity.RESULT_OK, result.data)
             activity?.finish()
         }
@@ -76,7 +72,6 @@ fun MainLoggingMenuScreen() {
                 onBack = { selectedCategory = null },
                 onSubCategorySelected = { subCategory, hasFields ->
                     if (hasFields) {
-
                         val intent = Intent(context, FieldLoggingActivity::class.java).apply {
                             putExtra("SUB_CATEGORY_ID", subCategory.id)
                             putExtra("SUB_CATEGORY_NAME", subCategory.name)
@@ -84,7 +79,6 @@ fun MainLoggingMenuScreen() {
                         }
                         fieldLoggingLauncher.launch(intent)
                     } else {
-
                         val resultIntent = Intent().apply {
                             putExtra("LOGGED_CATEGORY", category.name)
                             putExtra("LOGGED_DESCRIPTION", subCategory.name)
@@ -110,11 +104,25 @@ fun MainCategoryGrid(onCategorySelected: (WasteCategory) -> Unit) {
     }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Image(painter = painterResource(id = R.drawable.litterboom_logo__2_), contentDescription = "Litterboom Logo", modifier = Modifier.height(60.dp).padding(vertical = 8.dp))
-        OutlinedTextField(value = "", onValueChange = {}, label = { Text("Filter a category?") }, modifier = Modifier.fillMaxWidth())
-        Spacer(modifier = Modifier.height(16.dp))
-        Text("Click a category below to begin logging", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(16.dp))
+        Image(
+            painter = painterResource(id = R.drawable.litterboom_logo__2_),
+            contentDescription = "Litterboom Logo",
+            modifier = Modifier.height(60.dp).padding(vertical = 8.dp)
+        )
+        OutlinedTextField(
+            value = "",
+            onValueChange = {},
+            label = { Text("Filter a category?") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(Modifier.height(16.dp))
+        Text(
+            "Click a category below to begin logging",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(Modifier.height(16.dp))
 
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
@@ -123,7 +131,11 @@ fun MainCategoryGrid(onCategorySelected: (WasteCategory) -> Unit) {
             modifier = Modifier.weight(1f)
         ) {
             items(categories) { category ->
-                Button(onClick = { onCategorySelected(category) }, shape = RoundedCornerShape(8.dp), modifier = Modifier.height(60.dp)) {
+                Button(
+                    onClick = { onCategorySelected(category) },
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.height(60.dp)
+                ) {
                     Text(text = category.name)
                 }
             }
@@ -133,7 +145,11 @@ fun MainCategoryGrid(onCategorySelected: (WasteCategory) -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SubCategoryList(category: WasteCategory, onBack: () -> Unit, onSubCategorySelected: (WasteSubCategory, Boolean) -> Unit) {
+fun SubCategoryList(
+    category: WasteCategory,
+    onBack: () -> Unit,
+    onSubCategorySelected: (WasteSubCategory, Boolean) -> Unit
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var subCategories by remember { mutableStateOf<List<WasteSubCategory>>(emptyList()) }
@@ -146,12 +162,20 @@ fun SubCategoryList(category: WasteCategory, onBack: () -> Unit, onSubCategorySe
         topBar = {
             TopAppBar(
                 title = { Text("Log: ${category.name}") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } }
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
             )
         },
         containerColor = Color.Transparent
     ) { innerPadding ->
-        LazyColumn(modifier = Modifier.padding(innerPadding).fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyColumn(
+            modifier = Modifier.padding(innerPadding).fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             items(subCategories) { item ->
                 Button(
                     onClick = {
@@ -161,9 +185,7 @@ fun SubCategoryList(category: WasteCategory, onBack: () -> Unit, onSubCategorySe
                         }
                     },
                     modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(text = item.name)
-                }
+                ) { Text(text = item.name) }
             }
         }
     }
