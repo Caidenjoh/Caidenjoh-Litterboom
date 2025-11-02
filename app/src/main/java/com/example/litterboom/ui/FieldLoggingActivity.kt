@@ -61,6 +61,14 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import java.util.Locale
 
+/**
+ * FieldLoggingActivity is an Android Activity responsible for displaying a screen
+ * where users can log specific details for a selected waste sub-category.
+ * It dynamically generates input fields based on the requirements for that sub-category,
+ * fetched from the database. It also handles capturing and associating photos with the item.
+ * The activity can operate in two modes: creating a new log entry or editing an existing one.
+ *
+ */
 class FieldLoggingActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -79,6 +87,14 @@ class FieldLoggingActivity : ComponentActivity() {
     }
 }
 
+/**
+ * A composable function that provides the UI for logging or editing details of a waste item.
+ * It displays a dynamic form based on the fields required for the given sub-category,
+ * handles user input with appropriate validation and formatting, and allows photo capture.
+ * @param subCategoryId The ID of the waste sub-category being logged.
+ * @param subCategoryName The name of the waste sub-category, used for display purposes.
+ * @param mainCategoryName The name of the main waste category.
+ * @param loggedWasteId The ID of the logged waste item if in edit mode; otherwise, -1. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FieldLoggingScreen(subCategoryId: Int, subCategoryName: String, mainCategoryName: String, loggedWasteId: Int) {
@@ -92,6 +108,7 @@ fun FieldLoggingScreen(subCategoryId: Int, subCategoryName: String, mainCategory
     var showCamera by remember { mutableStateOf(false) }
 
     LaunchedEffect(subCategoryId) {
+        // Fetch required fields from the database when the subCategoryId changes.
         if (subCategoryId != -1) {
             val db = AppDatabase.getDatabase(context)
             requiredFields = db.wasteDao().getFieldsForSubCategory(subCategoryId)
@@ -106,7 +123,7 @@ fun FieldLoggingScreen(subCategoryId: Int, subCategoryName: String, mainCategory
                     }
                 }
             } else {
-                // else initialise with empty values
+                // Otherwise, initialise with empty values for a new entry.
                 requiredFields.forEach { field -> fieldInputValues[field.id] = "" }
             }
         }
@@ -123,6 +140,7 @@ fun FieldLoggingScreen(subCategoryId: Int, subCategoryName: String, mainCategory
             .padding(24.dp)
     ) {
         Column(Modifier.fillMaxSize()) {
+            // Top app bar with back button and title
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { (context as? Activity)?.finish() }) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
@@ -140,6 +158,7 @@ fun FieldLoggingScreen(subCategoryId: Int, subCategoryName: String, mainCategory
             LazyColumn(modifier = Modifier.weight(1f)) {
 
                 items(requiredFields) { field ->
+                    // Determine field type for specific keyboard and validation logic.
                     val isWeightField = field.fieldName.contains("weight", ignoreCase = true) ||
                             field.fieldName.contains("kg", ignoreCase = true)
                     val isPiecesField = field.fieldName.equals("Pieces", ignoreCase = true)
@@ -214,7 +233,8 @@ fun FieldLoggingScreen(subCategoryId: Int, subCategoryName: String, mainCategory
 
                 item { Spacer(Modifier.height(16.dp)) }
             }
-
+            // This button finalises the logging process, creating a result intent with the logged data
+            // and finishing the activity.
             Button(
                 onClick = {
                     val activity = context as? Activity
@@ -265,6 +285,15 @@ fun FieldLoggingScreen(subCategoryId: Int, subCategoryName: String, mainCategory
         }
     }
 
+/**
+ * Formats a given string to Title Case.
+ * Each word in the input string is transformed so that its first letter is uppercase
+ * and the remaining letters are lowercase.
+ *
+ * Example: "hello world" becomes "Hello World".
+ * @param input The string to be formatted.
+ * @return The Title Cased version of the input string.
+ */
 private fun formatToTitleCase(input: String): String {
     return input.split(" ").joinToString(" ") { word ->
         if (word.isNotEmpty()) {

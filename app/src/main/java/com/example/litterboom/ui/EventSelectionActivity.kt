@@ -34,7 +34,19 @@ import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.jvm.java
 
+/**
+ * An Activity that displays a list of available cleanup events for a waste worker to select.
+ * This activity is responsible for setting up the Jetpack Compose content view.
+ */
 class EventSelectionActivity : ComponentActivity() {
+    /**
+     * Called when the activity is first created. This is where you should do all of your normal
+     * static set up: create views, bind data to lists, etc.
+     *
+     * @param savedInstanceState If the activity is being re-initialized after previously being
+     * shut down then this Bundle contains the data it most recently supplied in onSaveInstanceState(Bundle).
+     * Note: Otherwise it is null.
+     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -46,16 +58,22 @@ class EventSelectionActivity : ComponentActivity() {
     }
 }
 
-
+/**
+ * A composable function that represents the entire screen for event selection.
+ * It fetches and displays a list of open events from the database.
+ * Users can tap on an event to proceed to the bag entry screen for that event.
+ */
 @Composable
 fun EventSelectionScreen() {
     val context = LocalContext.current
     var events by remember { mutableStateOf<List<Event>>(emptyList()) }
 
+    // LaunchedEffect to fetch the list of open events from the database once when the composable enters the composition.
     LaunchedEffect(Unit) {
         events = AppDatabase.getDatabase(context).eventDao().getOpenEvents()
     }
 
+    // Main container with a gradient background
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -75,6 +93,7 @@ fun EventSelectionScreen() {
                 .statusBarsPadding()
                 .navigationBarsPadding()
         ) {
+            // Top app bar with back button and title
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { (context as? Activity)?.finish() }) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
@@ -88,15 +107,18 @@ fun EventSelectionScreen() {
             }
             Spacer(modifier = Modifier.height(24.dp))
 
+            // Conditional content: Show a message if no events are found, otherwise display the list of events.
             if (events.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("No events found. Please ask an admin to create one.", color = Color.White)
                 }
             } else {
+                // LazyColumn for efficiently displaying a potentially long list of events.
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(events) { event ->
                         Button(
                             onClick = {
+                                // On click, create an intent for BagEntryActivity and pass the selected event's ID and name.
                                 val intent = Intent(context, BagEntryActivity::class.java).apply {
                                     putExtra("EVENT_ID", event.id)
                                     putExtra("SELECTED_EVENT_NAME", event.name)
@@ -107,8 +129,10 @@ fun EventSelectionScreen() {
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surface)
                         ) {
                             Column(modifier = Modifier.padding(8.dp)) {
+                                // Display event name
                                 Text(event.name, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                                 Text(
+                                    // Format and display event date and location
                                     "${SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(event.date))} - ${event.location}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
@@ -122,6 +146,9 @@ fun EventSelectionScreen() {
     }
 }
 
+/**
+ * A preview composable for visualizing the [EventSelectionScreen] in Android Studio's design view.
+ */
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun EventSelectionScreenPreview() {
