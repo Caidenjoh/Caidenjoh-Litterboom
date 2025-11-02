@@ -3,6 +3,7 @@ package com.example.litterboom
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -31,6 +33,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,19 +44,28 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.ViewList
+import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Inventory
+import androidx.compose.material.icons.filled.ListAlt
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Waves
+import androidx.compose.material.icons.filled.WbIncandescent
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -77,6 +91,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
@@ -125,6 +140,7 @@ import com.example.litterboom.data.SubCategoryField
 import com.example.litterboom.data.User
 import com.example.litterboom.data.WasteCategory
 import com.example.litterboom.data.WasteSubCategory
+import com.example.litterboom.data.api.ApiClient
 import com.example.litterboom.ui.EventSelectionActivity
 import com.example.litterboom.ui.theme.LitterboomTheme
 import com.google.android.libraries.places.api.Places
@@ -132,12 +148,12 @@ import com.google.android.libraries.places.api.model.Place
 import com.google.android.libraries.places.widget.Autocomplete
 import com.google.android.libraries.places.widget.AutocompleteActivity
 import com.google.android.libraries.places.widget.model.AutocompleteActivityMode
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import org.apache.poi.ss.usermodel.FillPatternType
 import org.apache.poi.ss.usermodel.IndexedColors
 import org.apache.poi.xssf.usermodel.XSSFCellStyle
-import com.example.litterboom.data.api.ApiClient
-import com.google.firebase.auth.FirebaseAuth
 import org.apache.poi.xssf.usermodel.XSSFFont
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import org.json.JSONObject
@@ -146,28 +162,6 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-import kotlinx.coroutines.tasks.await
-import android.util.Log
-import androidx.compose.foundation.LocalIndication
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.material.icons.filled.AdminPanelSettings
-import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material.icons.filled.ListAlt
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.People
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Waves
-import androidx.compose.material.icons.filled.School
-import androidx.compose.material.icons.filled.WbIncandescent
-import androidx.compose.material3.Divider
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material3.Card
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -733,15 +727,39 @@ fun ContactScreen(onBackClick: () -> Unit) {
 }
 
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminPanelScreen(onMenuClick: () -> Unit, navigateTo: (String) -> Unit) {
-    Box(modifier = Modifier.fillMaxSize().background(brush = Brush.verticalGradient(colors = listOf(MaterialTheme.colorScheme.secondary, MaterialTheme.colorScheme.primary)))) {
-        Column(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
-            Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onMenuClick) { Icon(Icons.Default.Menu, "Menu", tint = Color.White) }
-                Spacer(modifier = Modifier.width(16.dp))
-                Text("Admin Panel", style = MaterialTheme.typography.headlineLarge, color = Color.White)
-            }
+
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = {
+                    Text(
+                        "Admin Panel",
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = Color.White
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onMenuClick) {
+                        Icon(Icons.Default.Menu, "Menu", tint = Color.White)
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = Color.Transparent
+                ),
+                modifier = Modifier.statusBarsPadding()
+            )
+        },
+        containerColor = Color.Transparent
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(brush = Brush.verticalGradient(colors = listOf(MaterialTheme.colorScheme.secondary, MaterialTheme.colorScheme.primary)))
+                .padding(paddingValues)
+        ) {
             AdminMenu(
                 onAddUserClick = { navigateTo("Add User") },
                 onCreateEventClick = { navigateTo("Create Event") },
@@ -1320,27 +1338,7 @@ private fun LoggedWasteDetailScreen(event: Event, onBack: () -> Unit) {
             LazyColumn {
                 items(loggedItems) { (waste, user) ->
                     Card(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable(
-                            indication = LocalIndication.current,
-                            interactionSource = remember { MutableInteractionSource() }
-                        )
-                        {
-                            scope.launch {
-                                val allCategories = db.wasteDao().getAllCategories()
-                                val category = allCategories.find { it.name == waste.category }
-                                val categoryId = category?.id ?: return@launch
-                                val subCategories = db.wasteDao().getSubCategoriesForCategory(categoryId)
-                                val subCategory = subCategories.find { it.name == waste.subCategory }
-                                val subCategoryId = subCategory?.id ?: return@launch
-                                val intent = Intent(context, com.example.litterboom.ui.FieldLoggingActivity::class.java).apply {
-                                    putExtra("SUB_CATEGORY_ID", subCategoryId)
-                                    putExtra("SUB_CATEGORY_NAME", waste.subCategory)
-                                    putExtra("MAIN_CATEGORY_NAME", waste.category)
-                                    putExtra("LOGGED_WASTE_ID", waste.id)
-                                }
-                                context.startActivity(intent)
-                            }
-                        },
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                         colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.2f))
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
@@ -1455,6 +1453,7 @@ fun AddUserScreen(onBackClick: () -> Unit) {
                     color = Color.White
                 )
             }
+
             Spacer(modifier = Modifier.height(24.dp))
             OutlinedTextField(
                 value = username,
@@ -1504,32 +1503,32 @@ fun AddUserScreen(onBackClick: () -> Unit) {
                 }
             }
             Spacer(modifier = Modifier.height(24.dp))
-                Button(
-                    onClick = {
-                        scope.launch {
-                            if (username.isNotBlank() && password.isNotBlank()) {
-                                try {
-                                    AppDatabase.getDatabase(context).userDao().insertUser(
-                                        User(
-                                            username = username,
-                                            password = password,
-                                            role = selectedRole
-                                        )
+            Button(
+                onClick = {
+                    scope.launch {
+                        if (username.isNotBlank() && password.isNotBlank()) {
+                            try {
+                                AppDatabase.getDatabase(context).userDao().insertUser(
+                                    User(
+                                        username = username,
+                                        password = password,
+                                        role = selectedRole
                                     )
-                                    username = ""
-                                    password = ""
-                                    successMessage = "User added successfully!"
-                                    refreshUsers()
-                                } catch (e: retrofit2.HttpException) {
-                                    successMessage = if (e.code() == 400) "Failed to add user: A user with this email already exists." else "Failed to add user: ${e.message()}"
-                                } catch (e: Exception) {
-                                    successMessage = "Failed to add user: ${e.message}"
-                                }
-                            } else {
-                                successMessage = "Please fill all fields."
+                                )
+                                username = ""
+                                password = ""
+                                successMessage = "User added successfully!"
+                                refreshUsers()
+                            } catch (e: retrofit2.HttpException) {
+                                successMessage = if (e.code() == 400) "Failed to add user: A user with this email already exists." else "Failed to add user: ${e.message()}"
+                            } catch (e: Exception) {
+                                successMessage = "Failed to add user: ${e.message}"
                             }
+                        } else {
+                            successMessage = "Please fill all fields."
                         }
-                    },
+                    }
+                },
                 modifier = Modifier.fillMaxWidth().height(50.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
@@ -1546,6 +1545,7 @@ fun AddUserScreen(onBackClick: () -> Unit) {
                     modifier = Modifier.padding(top = 8.dp)
                 )
             }
+
             Spacer(modifier = Modifier.height(24.dp))
             Text(
                 "Current Users:",
@@ -1553,15 +1553,66 @@ fun AddUserScreen(onBackClick: () -> Unit) {
                 color = Color.White
             )
             Spacer(modifier = Modifier.height(8.dp))
-            LazyColumn(modifier = Modifier.fillMaxWidth()) {
+
+           // LazyColumn of Cards
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp) // Add space between cards
+            ) {
                 items(users) { user ->
-                    Text(
-                        text = "${user.id}: ${user.username} (${user.role})",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = Color.White,
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    )
-                    Divider(color = Color.White.copy(alpha = 0.3f))
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color.White.copy(alpha = 0.2f),
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            // User Info
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = user.username,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = user.role,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color.White.copy(alpha = 0.8f)
+                                )
+                            }
+
+                            // Added the Switch
+                            val isAdmin = user.role == "Admin"
+
+                            var isChecked by remember { mutableStateOf(true) }
+
+                            Switch(
+                                checked = if (isAdmin) true else isChecked,
+                                onCheckedChange = {
+                                    if (!isAdmin) {
+                                        isChecked = it
+                                    }
+                                },
+                                // Disabled if user is Admin
+                                enabled = !isAdmin,
+                                colors = SwitchDefaults.colors(
+                                    // Style for the disabled Admin toggle
+                                    disabledCheckedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                                    disabledCheckedThumbColor = Color.White.copy(alpha = 0.8f),
+                                    // Style for the enabled User toggles
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                    uncheckedTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+                                )
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -1936,151 +1987,6 @@ fun ManageFieldsScreen(onBackClick: () -> Unit) {
         }
     }
 }
-
-/*@Composable
-fun AdminControlPanelScreen(onMenuClick: () -> Unit, onItemClick: (String) -> Unit) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var username by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var selectedRole by remember { mutableStateOf("User") }
-    var roleMenuExpanded by remember { mutableStateOf(false) }
-    var successMessage by remember { mutableStateOf("") }
-    var users by remember { mutableStateOf(listOf<User>()) }
-
-    LaunchedEffect(Unit) {
-        val db = AppDatabase.getDatabase(context)
-        users = db.userDao().getAllUsers()
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onMenuClick) {
-                Icon(Icons.Default.Menu, contentDescription = "Menu")
-            }
-            Spacer(modifier = Modifier.width(16.dp))
-            Text("Admin Panel", style = MaterialTheme.typography.headlineLarge)
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        OutlinedTextField(
-            value = username,
-            onValueChange = { username = it },
-            label = { Text("Username") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = { Text("Password") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Role: ", style = MaterialTheme.typography.bodyLarge)
-            Spacer(modifier = Modifier.width(8.dp))
-            Box {
-                Button(onClick = { roleMenuExpanded = true }) {
-                    Text(selectedRole)
-                }
-                DropdownMenu(
-                    expanded = roleMenuExpanded,
-                    onDismissRequest = { roleMenuExpanded = false }
-                ) {
-                    listOf("User", "Admin").forEach { role ->
-                        DropdownMenuItem(
-                            text = { Text(role) },
-                            onClick = {
-                                selectedRole = role
-                                roleMenuExpanded = false
-                            }
-                        )
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Button(
-            onClick = {
-                scope.launch {
-                    if (username.isNotBlank() && password.isNotBlank()) {
-                        val db = AppDatabase.getDatabase(context)
-                        db.userDao().insertUser(
-                            User(
-                                username = username,
-                                password = password,
-                                role = selectedRole
-                            )
-                        )
-                        username = ""
-                        password = ""
-                        selectedRole = "User"
-                        successMessage = "User added successfully!"
-
-                        users = db.userDao().getAllUsers()
-                    } else {
-                        successMessage = "Please enter both username and password."
-                    }
-                }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp)
-        ) {
-            Text("Add User")
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        if (successMessage.isNotEmpty()) {
-            Text(
-                text = successMessage,
-                color = MaterialTheme.colorScheme.primary,
-                style = MaterialTheme.typography.bodyLarge
-            )
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Text("Current Users:", style = MaterialTheme.typography.headlineSmall)
-        Spacer(modifier = Modifier.height(8.dp))
-
-        LazyColumn(modifier = Modifier.fillMaxWidth()) {
-            items(users) { user ->
-                Text(
-                    text = "${user.id}: ${user.username} (${user.role})",
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(vertical = 4.dp)
-                )
-                Divider(color = Color.Gray.copy(alpha = 0.3f))
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Button(
-            onClick = { onItemClick("Create Event") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp)
-        ) {
-            Text("Create Event")
-        }
-
-    }
-}*/
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
