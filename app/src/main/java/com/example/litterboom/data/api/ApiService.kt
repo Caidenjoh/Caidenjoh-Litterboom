@@ -22,6 +22,9 @@ interface ApiService {
     @GET("api/users/{role}")
     suspend fun getUsersByRole(@Path("role") role: String): List<User>
 
+    @PATCH("api/users/{id}/toggle-active")
+    suspend fun toggleUserActive(@Path("id") id: Int): User
+
     // Events
     @GET("api/events")
     suspend fun getEvents(): List<Event>
