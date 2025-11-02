@@ -33,8 +33,11 @@ import com.example.litterboom.data.CurrentUserManager
 import com.example.litterboom.WasteWorkerActivity
 import com.example.litterboom.data.AppDatabase
 import com.example.litterboom.data.Bag
+import com.example.litterboom.data.api.ApiClient
 import com.example.litterboom.ui.theme.LitterboomTheme
 import kotlinx.coroutines.launch
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Delete
 
 class BagEntryActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -60,6 +63,7 @@ fun BagEntryScreen(eventId: Int, eventName: String) {
     var bagNumber by remember { mutableStateOf("") }
     var weight by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf("") }
+    var showRejectAllDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         bags = db.bagDao().getBagsByEvent(eventId)
@@ -207,6 +211,57 @@ fun BagEntryScreen(eventId: Int, eventName: String) {
                         }
                     } else {
                         items(bags) { bag ->
+                            var showEditDialog by remember { mutableStateOf(false) }
+                            var showDeleteDialog by remember { mutableStateOf(false) }
+
+                            if (showEditDialog) {
+                                EditBagDialog(
+                                    bag = bag,
+                                    onDismiss = { showEditDialog = false },
+                                    onSave = { updatedBag ->
+                                        scope.launch {
+                                            try {
+                                                ApiClient.apiService.updateBag(bag.bagId, updatedBag)
+                                                bags = db.bagDao().getBagsByEvent(eventId)
+                                                Toast.makeText(context, "Bag updated", Toast.LENGTH_SHORT).show()
+                                            } catch (e: Exception) {
+                                                Toast.makeText(context, "Update failed", Toast.LENGTH_SHORT).show()
+                                            }
+                                            showEditDialog = false
+                                        }
+                                    }
+                                )
+                            }
+
+                            if (showDeleteDialog) {
+                                AlertDialog(
+                                    onDismissRequest = { showDeleteDialog = false },
+                                    title = { Text("Delete Bag #${bag.bagNumber}?") },
+                                    text = { Text("This cannot be undone.") },
+                                    confirmButton = {
+                                        TextButton(onClick = {
+                                            scope.launch {
+                                                try {
+                                                    ApiClient.apiService.deleteBag(bag.bagId)
+                                                    bags = db.bagDao().getBagsByEvent(eventId)
+                                                    Toast.makeText(context, "Bag deleted", Toast.LENGTH_SHORT).show()
+                                                } catch (e: Exception) {
+                                                    Toast.makeText(context, "Delete failed", Toast.LENGTH_SHORT).show()
+                                                }
+                                                showDeleteDialog = false
+                                            }
+                                        }) {
+                                            Text("Delete", color = MaterialTheme.colorScheme.error)
+                                        }
+                                    },
+                                    dismissButton = {
+                                        TextButton(onClick = { showDeleteDialog = false }) {
+                                            Text("Cancel")
+                                        }
+                                    }
+                                )
+                            }
+
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -217,10 +272,24 @@ fun BagEntryScreen(eventId: Int, eventName: String) {
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(16.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("Bag ${bag.bagNumber}", color = MaterialTheme.colorScheme.primary)
-                                    Text("${bag.weight} kg", color = MaterialTheme.colorScheme.primary)
+                                    Column {
+                                        Text("Bag ${bag.bagNumber}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                        Text("${bag.weight} kg", color = MaterialTheme.colorScheme.primary)
+                                    }
+
+                                    if (!isApproved) {
+                                        Row {
+                                            IconButton(onClick = { showEditDialog = true }) {
+                                                Icon(Icons.Default.Edit, "Edit", tint = Color.Black)
+                                            }
+                                            IconButton(onClick = { showDeleteDialog = true }) {
+                                                Icon(Icons.Default.Delete, "Delete", tint = Color.Red)
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -239,21 +308,72 @@ fun BagEntryScreen(eventId: Int, eventName: String) {
 
             //admin approval button
             if (CurrentUserManager.isAdmin() && !isApproved) {
-                Button(
-                    onClick = {
-                        scope.launch {
-                            db.bagDao().approveBags(eventId)
-                            isApproved = true
-                            Toast.makeText(context, "Bags approved", Toast.LENGTH_SHORT).show()
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.End)
+                            .padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = { showRejectAllDialog = true },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.Red,
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Text("Reject Bags")
                         }
-                    },
-                    modifier = Modifier.align(Alignment.End),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    )
-                ) {
-                    Text("Approve Bags")
+
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    db.bagDao().approveBags(eventId)
+                                    isApproved = true
+                                    Toast.makeText(context, "Bags approved", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            )
+                        ) {
+                            Text("Approve Bags")
+                        }
+                    }
+
+                    if (showRejectAllDialog) {
+                        AlertDialog(
+                            onDismissRequest = { showRejectAllDialog = false },
+                            title = { Text("Reject All Bags?") },
+                            text = { Text("This will permanently delete all ${bags.size} bags.") },
+                            confirmButton = {
+                                TextButton(
+                                    onClick = {
+                                        showRejectAllDialog = false
+                                        scope.launch {
+                                            try {
+                                                bags.forEach { bag ->
+                                                    ApiClient.apiService.deleteBag(bag.bagId)
+                                                }
+                                                bags = db.bagDao().getBagsByEvent(eventId)
+                                                Toast.makeText(context, "All bags rejected and removed", Toast.LENGTH_SHORT).show()
+                                            } catch (e: Exception) {
+                                                Toast.makeText(context, "Failed to reject bags", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    }
+                                ) {
+                                    Text("Delete All", color = MaterialTheme.colorScheme.error)
+                                }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showRejectAllDialog = false }) {
+                                    Text("Cancel")
+                                }
+                            }
+                        )
+                    }
                 }
             }
 
@@ -280,6 +400,59 @@ fun BagEntryScreen(eventId: Int, eventName: String) {
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditBagDialog(bag: Bag, onDismiss: () -> Unit, onSave: (Bag) -> Unit) {
+    var bagNumber by remember { mutableStateOf(bag.bagNumber.toString()) }
+    var weight by remember { mutableStateOf(bag.weight.toString()) }
+    var error by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Bag #${bag.bagNumber}") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = bagNumber,
+                    onValueChange = { bagNumber = it },
+                    label = { Text("Bag Number (1-200)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = error.contains("number"),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = weight,
+                    onValueChange = { weight = it },
+                    label = { Text("Weight (kg)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    isError = error.contains("weight"),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (error.isNotEmpty()) {
+                    Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 4.dp))
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val num = bagNumber.toIntOrNull()
+                val wt = weight.toDoubleOrNull()
+                when {
+                    num == null || num !in 1..200 -> error = "Bag number must be 1-200"
+                    wt == null || wt <= 0 -> error = "Weight must be > 0"
+                    else -> onSave(bag.copy(bagNumber = num, weight = wt))
+                }
+            }) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
 }
 
 @Preview(showBackground = true, showSystemUi = true)
