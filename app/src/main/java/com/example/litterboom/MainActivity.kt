@@ -1700,26 +1700,31 @@ fun AddUserScreen(onBackClick: () -> Unit) {
                             }
 
                             // Added the Switch
+                            var isChecked by remember(user.isActive) { mutableStateOf(user.isActive) }
                             val isAdmin = user.role == "Admin"
-
-                            var isChecked by remember { mutableStateOf(true) }
 
                             Switch(
                                 checked = if (isAdmin) true else isChecked,
-                                onCheckedChange = {
+                                onCheckedChange = { newValue ->
                                     if (!isAdmin) {
-                                        isChecked = it
+                                        scope.launch {
+                                            try {
+                                                val updatedUser = ApiClient.apiService.toggleUserActive(user.id)
+                                                isChecked = updatedUser.isActive
+                                                refreshUsers()
+                                                Toast.makeText(context, "User ${if (newValue) "enabled" else "disabled"}", Toast.LENGTH_SHORT).show()
+                                            } catch (e: Exception) {
+                                                Toast.makeText(context, "Failed to update user", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
                                     }
                                 },
-                                // Disabled if user is Admin
                                 enabled = !isAdmin,
                                 colors = SwitchDefaults.colors(
-                                    // Style for the disabled Admin toggle
-                                    disabledCheckedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                                    disabledCheckedThumbColor = Color.White.copy(alpha = 0.8f),
-                                    // Style for the enabled User toggles
                                     checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    uncheckedTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+                                    uncheckedTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
+                                    disabledCheckedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                                    disabledUncheckedTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
                                 )
                             )
                         }
@@ -2456,11 +2461,19 @@ fun LoginSheetContent(isExpanded: Boolean, loggedIn: Boolean, onLoginClick: () -
                                     } else {
                                         Log.e("LOGIN", "Failed to get ID token! User: ${result.user?.uid}")
                                     }
+
+                                    val fullUserResponse = ApiClient.apiService.getUserById(response.userId)
+                                    if (!fullUserResponse.isActive) {
+                                        loginMessage = "Your account has been disabled. Contact admin."
+                                        return@launch
+                                    }
+
                                     val user = User(
                                         id = response.userId,
                                         username = username,
                                         password = "",
-                                        role = response.role
+                                        role = response.role,
+                                        isActive = fullUserResponse.isActive
                                     )
 
                                     loginMessage = "Login successful as ${response.role}!"

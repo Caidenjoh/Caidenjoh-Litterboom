@@ -31,4 +31,8 @@ class ApiUserDao : UserDao {
             null
         }
     }
+
+    override suspend fun toggleUserActive(id: Int): User {
+        return apiService.toggleUserActive(id)
+    }
 }
