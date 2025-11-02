@@ -9,6 +9,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.fadeIn
@@ -38,6 +39,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardOptions
@@ -162,7 +164,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 
 /**
  * The main entry point of the application.
@@ -177,6 +179,7 @@ class MainActivity : ComponentActivity() {
      * static set up: create views, bind data to lists, etc.
      */
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         try {
@@ -574,7 +577,7 @@ fun OurStoryScreen(onBackClick: () -> Unit) {
             Spacer(modifier = Modifier.height(24.dp))
 
             Image(
-                painter = painterResource(id = R.drawable.cameron_service),
+                painter = painterResource(id = R.drawable.our_story),
                 contentDescription = "The Litterboom Project Team",
                 modifier = Modifier
                     .fillMaxWidth()
@@ -599,6 +602,12 @@ fun OurStoryScreen(onBackClick: () -> Unit) {
     }
 }
 
+private data class TeamMember(
+    val name: String,
+    val bio: String,
+    @DrawableRes val imageRes: Int
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 /**
  * A screen introducing the key members of The Litterboom Project team.
@@ -607,14 +616,21 @@ fun OurStoryScreen(onBackClick: () -> Unit) {
 @Composable
 fun TheTeamScreen(onBackClick: () -> Unit) {
     // Data class to hold team member information
-    data class TeamMember(val name: String, val role: String, val bio: String)
+    data class TeamMember(
+        val name: String,
+        val role: String,
+        val bio: String,
+        @DrawableRes val imageRes: Int
+    )
 
     val teamMembers = listOf(
-        TeamMember("Cameron Service", "CEO & Founder", "Cameron's passion for the ocean and outdoors led him to create a project to tackle the plastic pollution crisis at its source: our rivers."),
-        TeamMember("Rudi Clark", "KZN Director", "Rudi manages daily operations and leads the Innovation Hub in KwaZulu-Natal, connecting people and ideas to find lasting solutions."),
-        TeamMember("Megan Swart", "Cape Town Project Manager", "Megan's passion for protecting rivers and coastlines drives her work, inspiring others to join the fight against plastic pollution."),
-        TeamMember("Casey Pratt", "Media Manager", "Through social media and photography, Casey shares The Litterboom Project's story to raise awareness and inspire action."),
-        TeamMember("Jihaad Jacobs", "Cape Town Ops Manager", "Jihaad leads teams, coordinates logistics, and oversees events, using his experience in waste management to protect the environment.")
+        TeamMember("Cameron Service", "CEO & Founder", "Cameron's passion for the ocean and outdoors led him to create a project to tackle the plastic pollution crisis at its source: our rivers.",R.drawable.cameron_service),
+        TeamMember("Rudi Clark", "KZN Director", "Rudi manages daily operations and leads the Innovation Hub in KwaZulu-Natal, connecting people and ideas to find lasting solutions.", R.drawable.rudi_clark),
+        TeamMember("Megan Swart", "Cape Town Project Manager", "Megan's passion for protecting rivers and coastlines drives her work, inspiring others to join the fight against plastic pollution.", R.drawable.megan_swart),
+        TeamMember("Casey Pratt", "Media Manager", "Through social media and photography, Casey shares The Litterboom Project's story to raise awareness and inspire action.", R.drawable.casey_pratt),
+        TeamMember("Jihaad Jacobs", "Cape Town Ops Manager", "Jihaad leads teams, coordinates logistics, and oversees events, using his experience in waste management to protect the environment.", R.drawable.jihaad_jacobs),
+        TeamMember("Sinegugu \"Sne\" Dlala", "Admin Assistant", "Sne began as a River Warden and, after wastepreneur training, moved into an administrative role. Known for her reliability and strong work ethic, she manages team communication and supports operations.", R.drawable.sinegugu_dlala),
+        TeamMember("Nelson Dumakude", "Production Assistant", "The first graduate of the Wastepreneur Programme, Nelson went from being unemployed to producing products from recycled polypropylene, such as plant stakes for Mr. Price Home.", R.drawable.nelson_dumakude)
     )
 
     Scaffold(
@@ -663,11 +679,33 @@ fun TheTeamScreen(onBackClick: () -> Unit) {
                         .padding(bottom = 16.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.2f))
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(member.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
-                        Text(member.role, style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = 0.9f))
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(member.bio, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.8f))
+                    // MODIFICATION 3: Change Card content from Column to Row
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically // Align items vertically
+                    ) {
+                        // MODIFICATION 4: Add the Image
+                        Image(
+                            painter = painterResource(id = member.imageRes),
+                            contentDescription = member.name,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(72.dp) // A good size for the card
+                                .clip(CircleShape) // Circular image
+                                .background(Color.White.copy(alpha = 0.5f)) // BG for placeholders
+                        )
+
+                        Spacer(modifier = Modifier.width(16.dp))
+
+                        // This is your original Column, now placed inside the Row
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(member.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
+                            Text(member.role, style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = 0.9f))
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(member.bio, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.8f))
+                        }
                     }
                 }
             }
@@ -1699,8 +1737,12 @@ fun AddUserScreen(onBackClick: () -> Unit) {
                                 )
                             }
 
+<<<<<<< Updated upstream
                             // Added the Switch
                             var isChecked by remember(user.isActive) { mutableStateOf(user.isActive) }
+=======
+                            // The Switch
+>>>>>>> Stashed changes
                             val isAdmin = user.role == "Admin"
 
                             Switch(
