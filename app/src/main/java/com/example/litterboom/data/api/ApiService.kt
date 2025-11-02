@@ -122,6 +122,9 @@ interface ApiService {
     @PUT("api/LoggedWaste/{id}")
     suspend fun updateLoggedWaste(@Path("id") id: Int, @Body loggedWaste: LoggedWaste): Response<Unit>
 
+    @POST("api/LoggedWaste/{id}/photo")
+    suspend fun uploadPhotoForLoggedWaste(@Path("id") id: Int, @Body base64Image: String): Response<String>
+
     @DELETE("api/LoggedWaste/{id}")
     suspend fun deleteLoggedWaste(@Path("id") id: Int): Response<Unit>
 

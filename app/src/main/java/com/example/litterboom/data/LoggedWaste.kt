@@ -7,5 +7,6 @@ data class LoggedWaste(
     val category: String,
     val subCategory: String,
     val details: String, // JSON string
+    val photoUrl: String = "",
     val userName: String = ""
 )

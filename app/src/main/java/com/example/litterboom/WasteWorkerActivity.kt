@@ -76,6 +76,13 @@ import com.example.litterboom.ui.theme.LitterboomTheme
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.io.Serializable
+import android.util.Base64
+import java.io.ByteArrayOutputStream
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
+import retrofit2.Response
+
 /**
  * `WasteWorkerActivity` is a ComponentActivity that serves as the main screen for waste workers.
  * It displays a list of logged waste entries for a specific event and allows workers to add,
@@ -120,8 +127,10 @@ data class LoggedEntry(
     val id: Int,
     val category: String,
     val description: String,
-    val details: Map<String, String>
+    val details: Map<String, String>,
+    val photoUrl: String? = null
 ) : Serializable
+
 /**
  * The main composable function for the Waste Worker screen, setting up the overall layout with a top app bar and content area.
  */
@@ -151,10 +160,10 @@ fun WasteWorkerScreen(eventName: String, eventId: Int) {
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WasteWorkerContent(contentPadding: PaddingValues,  eventName: String, eventId: Int) {
+fun WasteWorkerContent(contentPadding: PaddingValues, eventName: String, eventId: Int) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val currentSessionEntries = remember { mutableStateListOf<LoggedEntry>() }
+    var currentSessionEntries by remember { mutableStateOf<List<LoggedEntry>>(emptyList()) }
     var entryToDelete by remember { mutableStateOf<LoggedEntry?>(null) }
 
     // State for the filter dropdown
@@ -179,21 +188,46 @@ fun WasteWorkerContent(contentPadding: PaddingValues,  eventName: String, eventI
         }
     }
 
+    // Function to refresh waste entries from API
+    suspend fun refreshWasteEntries() {
+        if (eventId != -1) {
+            try {
+                val db = AppDatabase.getDatabase(context)
+                val loggedItemsFromApi = db.loggedWasteDao().getWasteForEvent(eventId)
+                val mappedEntries = loggedItemsFromApi.map { loggedWaste ->
+                    val detailsMap = mutableMapOf<String, String>()
+                    try {
+                        val detailsJson = JSONObject(loggedWaste.details)
+                        detailsJson.keys().forEach { key -> detailsMap[key] = detailsJson.getString(key) }
+                    } catch (e: Exception) { /* Handle error if JSON is invalid */ }
+                    LoggedEntry(loggedWaste.id, loggedWaste.category, loggedWaste.subCategory, detailsMap, loggedWaste.photoUrl.takeIf { !it.isNullOrEmpty() })
+                }
+                currentSessionEntries = mappedEntries
+            } catch (e: Exception) {
+                // If API fails, fall back to local database
+                try {
+                    val db = AppDatabase.getDatabase(context)
+                    val loggedItemsFromDb = db.loggedWasteDao().getWasteForEvent(eventId)
+                    val mappedEntries = loggedItemsFromDb.map { loggedWaste ->
+                        val detailsMap = mutableMapOf<String, String>()
+                        try {
+                            val detailsJson = JSONObject(loggedWaste.details)
+                            detailsJson.keys().forEach { key -> detailsMap[key] = detailsJson.getString(key) }
+                        } catch (e: Exception) { /* Handle error if JSON is invalid */ }
+                        LoggedEntry(loggedWaste.id, loggedWaste.category, loggedWaste.subCategory, detailsMap, loggedWaste.photoUrl.takeIf { !it.isNullOrEmpty() })
+                    }
+                    currentSessionEntries = mappedEntries
+                } catch (dbException: Exception) {
+                    // If both API and DB fail, show error
+                    Toast.makeText(context, "Failed to refresh data", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
     // Fetch previously logged data for this event
     LaunchedEffect(eventId) {
-        if (eventId != -1) {
-            val db = AppDatabase.getDatabase(context)
-            val loggedItemsFromDb = db.loggedWasteDao().getWasteForEvent(eventId)
-            val mappedEntries = loggedItemsFromDb.map { loggedWaste ->
-                val detailsMap = mutableMapOf<String, String>()
-                try {
-                    val detailsJson = JSONObject(loggedWaste.details)
-                    detailsJson.keys().forEach { key -> detailsMap[key] = detailsJson.getString(key) }
-                } catch (e: Exception) { /* Handle error if JSON is invalid */ }
-                LoggedEntry(loggedWaste.id, loggedWaste.category, loggedWaste.subCategory, detailsMap)
-            }
-            currentSessionEntries.addAll(mappedEntries)
-        }
+        refreshWasteEntries()
     }
 
     val loggingActivityLauncher = rememberLauncherForActivityResult(
@@ -211,26 +245,71 @@ fun WasteWorkerContent(contentPadding: PaddingValues,  eventName: String, eventI
                 val detailsMap = mutableMapOf<String, String>()
                 rawMap?.forEach { (key, value) -> detailsMap[key.toString()] = value.toString() }
 
+                val capturedPhotoUri = intent.getStringExtra("CAPTURED_PHOTO_URI")?.let { Uri.parse(it) }
+
                 scope.launch {
                     val userId = CurrentUserManager.currentUser?.id ?: -1
                     val detailsJson = JSONObject(detailsMap as Map<*, *>).toString()
 
-                if (editedId != -1) {
-                        val existing = AppDatabase.getDatabase(context).loggedWasteDao().getLoggedWasteById(editedId)
-                        val userIdForUpdate = existing?.userId ?: userId  // Preserve original userId, fallback to current
-                        val updatedEntry = LoggedEntry(editedId, category, description, detailsMap)
-                        val index = currentSessionEntries.indexOfFirst { it.id == editedId }
-                        if (index != -1) {
-                            currentSessionEntries[index] = updatedEntry
+                    if (editedId != -1) {
+                        try {
+                            val existing = AppDatabase.getDatabase(context).loggedWasteDao().getLoggedWasteById(editedId)
+                            val userIdForUpdate = existing?.userId ?: userId  // Preserve original userId, fallback to current
+                            val updatedEntry = LoggedEntry(editedId, category, description, detailsMap)
+                            currentSessionEntries = currentSessionEntries.map { entry ->
+                                if (entry.id == editedId) updatedEntry else entry
+                            }
+                            val loggedWaste = LoggedWaste(editedId, eventId, userIdForUpdate, category, description, detailsJson)
+                            AppDatabase.getDatabase(context).loggedWasteDao().updateLoggedWaste(loggedWaste)
+                            Toast.makeText(context, "Entry updated!", Toast.LENGTH_SHORT).show()
+                        } catch (e: Exception) {
+                            // If API call fails, just update locally
+                            val updatedEntry = LoggedEntry(editedId, category, description, detailsMap)
+                            currentSessionEntries = currentSessionEntries.map { entry ->
+                                if (entry.id == editedId) updatedEntry else entry
+                            }
+                            Toast.makeText(context, "Entry updated locally!", Toast.LENGTH_SHORT).show()
                         }
-                        val loggedWaste = LoggedWaste(editedId, eventId, userIdForUpdate, category, description, detailsJson)
-                        AppDatabase.getDatabase(context).loggedWasteDao().updateLoggedWaste(loggedWaste)
-                        Toast.makeText(context, "Entry updated!", Toast.LENGTH_SHORT).show()
                     } else {
                         val loggedWaste = LoggedWaste(0, eventId, userId, category, description, detailsJson)
                         val newId = AppDatabase.getDatabase(context).loggedWasteDao().insertLoggedWaste(loggedWaste).toInt()
-                        val newEntry = LoggedEntry(newId, category, description, detailsMap)
-                        currentSessionEntries.add(0, newEntry)
+
+                        val newEntry = LoggedEntry(newId, category, description, detailsMap, null)
+                        currentSessionEntries = listOf(newEntry) + currentSessionEntries
+
+                        // Upload photo if available
+                        if (capturedPhotoUri != null) {
+                            try {
+                                val base64Image = convertUriToBase64(context, capturedPhotoUri)
+                                if (base64Image != null) {
+                                    val response = AppDatabase.getDatabase(context).loggedWasteDao().uploadPhotoForLoggedWaste(newId, base64Image)
+                                    if (response.isSuccessful) {
+                                        val photoUrl = response.body()
+                                        if (photoUrl != null) {
+                                            // Update the logged waste with the photo URL
+                                            val updatedWaste = loggedWaste.copy(id = newId, photoUrl = photoUrl)
+                                            AppDatabase.getDatabase(context).loggedWasteDao().updateLoggedWaste(updatedWaste)
+                                            // Update the specific entry in the UI with the photo URL
+                                            currentSessionEntries = currentSessionEntries.map { entry ->
+                                                if (entry.id == newId) {
+                                                    entry.copy(photoUrl = photoUrl)
+                                                } else {
+                                                    entry
+                                                }
+                                            }
+                                        } else {
+                                            Toast.makeText(context, "Photo upload failed: Empty response", Toast.LENGTH_SHORT).show()
+                                        }
+                                    } else {
+                                        Toast.makeText(context, "Photo upload failed: ${response.message()}", Toast.LENGTH_SHORT).show()
+                                    }
+                                } else {
+                                    Toast.makeText(context, "Failed to process photo", Toast.LENGTH_SHORT).show()
+                                }
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Photo upload failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                            }
+                        }
                         Toast.makeText(context, "Entry saved!", Toast.LENGTH_SHORT).show()
                     }
                 }
@@ -248,7 +327,10 @@ fun WasteWorkerContent(contentPadding: PaddingValues,  eventName: String, eventI
             "Not you? Logout",
             color = Color.White.copy(alpha = 0.8f),
             style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.padding(bottom = 16.dp).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
+            modifier = Modifier.padding(bottom = 16.dp).clickable(
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() }
+            ) {
                 val intent = Intent(context, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK }
                 context.startActivity(intent)
                 (context as? Activity)?.finish()
@@ -339,28 +421,51 @@ fun WasteWorkerContent(contentPadding: PaddingValues,  eventName: String, eventI
                                         lineHeight = 14.sp
                                     )
                                 }
+                                // Display photo download link if photo exists
+                                if (!entry.photoUrl.isNullOrEmpty()) {
+                                    Text(
+                                        text = "📷 Download Photo",
+                                        color = Color.Blue,
+                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                        modifier = Modifier
+                                            .padding(top = 4.dp)
+                                            .clickable(
+                                                indication = null,
+                                                interactionSource = null
+                                            ) {
+                                                // Open photo in browser for download
+                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(entry.photoUrl))
+                                                context.startActivity(intent)
+                                            }
+                                    )
+                                }
                             }
                             Row {
                                 IconButton(onClick = {
                                     // Launch FieldLoggingActivity in edit mode directly
                                     scope.launch {
-                                        val loggedWaste = AppDatabase.getDatabase(context).loggedWasteDao().getLoggedWasteById(entry.id)
-                                        if (loggedWaste != null) {
-                                            val categories = AppDatabase.getDatabase(context).wasteDao().getAllCategories()
-                                            val category = categories.find { it.name == loggedWaste.category }
-                                            if (category != null) {
-                                                val subCategories = AppDatabase.getDatabase(context).wasteDao().getActiveSubCategoriesForCategory(category.id)
-                                                val subCategory = subCategories.find { it.name == loggedWaste.subCategory }
-                                                if (subCategory != null) {
-                                                    val intent = Intent(context, com.example.litterboom.ui.FieldLoggingActivity::class.java).apply {
-                                                        putExtra("SUB_CATEGORY_ID", subCategory.id)
-                                                        putExtra("SUB_CATEGORY_NAME", subCategory.name)
-                                                        putExtra("MAIN_CATEGORY_NAME", loggedWaste.category)
-                                                        putExtra("LOGGED_WASTE_ID", loggedWaste.id)
+                                        try {
+                                            val loggedWaste = AppDatabase.getDatabase(context).loggedWasteDao().getLoggedWasteById(entry.id)
+                                            if (loggedWaste != null) {
+                                                val categories = AppDatabase.getDatabase(context).wasteDao().getAllCategories()
+                                                val category = categories.find { it.name == loggedWaste.category }
+                                                if (category != null) {
+                                                    val subCategories = AppDatabase.getDatabase(context).wasteDao().getActiveSubCategoriesForCategory(category.id)
+                                                    val subCategory = subCategories.find { it.name == loggedWaste.subCategory }
+                                                    if (subCategory != null) {
+                                                        val intent = Intent(context, com.example.litterboom.ui.FieldLoggingActivity::class.java).apply {
+                                                            putExtra("SUB_CATEGORY_ID", subCategory.id)
+                                                            putExtra("SUB_CATEGORY_NAME", subCategory.name)
+                                                            putExtra("MAIN_CATEGORY_NAME", loggedWaste.category)
+                                                            putExtra("LOGGED_WASTE_ID", loggedWaste.id)
+                                                        }
+                                                        loggingActivityLauncher.launch(intent)
                                                     }
-                                                    loggingActivityLauncher.launch(intent)
                                                 }
                                             }
+                                        } catch (e: Exception) {
+                                            // If API call fails, show error
+                                            Toast.makeText(context, "Unable to edit entry", Toast.LENGTH_SHORT).show()
                                         }
                                     }
                                 }) {
@@ -401,13 +506,16 @@ fun WasteWorkerContent(contentPadding: PaddingValues,  eventName: String, eventI
                 Button(
                     onClick = {
                         scope.launch {
-                            val db = AppDatabase.getDatabase(context)
-                            // Find the corresponding item in the database using its unique ID
-                            val itemToDeleteFromDb = db.loggedWasteDao().getLoggedWasteById(entryToDelete!!.id)
-                            if (itemToDeleteFromDb != null) {
-                                db.loggedWasteDao().deleteLoggedWaste(itemToDeleteFromDb)
-                                currentSessionEntries.remove(entryToDelete)
+                            try {
+                                // Try to delete from API first
+                                val db = AppDatabase.getDatabase(context)
+                                db.loggedWasteDao().deleteLoggedWaste(LoggedWaste(entryToDelete!!.id, 0, 0, "", "", ""))
+                                currentSessionEntries = currentSessionEntries.filter { it.id != entryToDelete!!.id }
                                 Toast.makeText(context, "Entry deleted", Toast.LENGTH_SHORT).show()
+                            } catch (e: Exception) {
+                                // If API delete fails, still remove from local list
+                                currentSessionEntries = currentSessionEntries.filter { it.id != entryToDelete!!.id }
+                                Toast.makeText(context, "Entry removed locally", Toast.LENGTH_SHORT).show()
                             }
                             entryToDelete = null
                         }
@@ -423,5 +531,21 @@ fun WasteWorkerContent(contentPadding: PaddingValues,  eventName: String, eventI
                 }
             }
         )
+    }
+}
+
+/**
+ * Converts a URI to a base64 encoded string.
+ */
+fun convertUriToBase64(context: android.content.Context, uri: Uri): String? {
+    return try {
+        val inputStream = context.contentResolver.openInputStream(uri)
+        val bitmap = BitmapFactory.decodeStream(inputStream)
+        val byteArrayOutputStream = ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 80, byteArrayOutputStream)
+        val byteArray = byteArrayOutputStream.toByteArray()
+        Base64.encodeToString(byteArray, Base64.NO_WRAP)
+    } catch (e: Exception) {
+        null
     }
 }

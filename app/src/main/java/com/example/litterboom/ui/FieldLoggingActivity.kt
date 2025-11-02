@@ -51,7 +51,7 @@ import com.example.litterboom.data.AppDatabase
 import com.example.litterboom.data.ItemPhoto
 import com.example.litterboom.data.LoggingField
 import com.example.litterboom.ui.camera.CameraCaptureScreen
-import com.example.litterboom.ui.logging.PhotosForSubCategorySection
+import com.example.litterboom.ui.logging.PhotoForLoggedWasteSection
 import com.example.litterboom.ui.theme.DarkJungleGreen
 import com.example.litterboom.ui.theme.LightTeal
 import com.example.litterboom.ui.theme.LitterboomTheme
@@ -60,6 +60,12 @@ import org.json.JSONObject
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import java.util.Locale
+import android.util.Base64
+import java.io.ByteArrayOutputStream
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import androidx.compose.ui.platform.LocalContext
+import android.content.ContentResolver
 
 /**
  * FieldLoggingActivity is an Android Activity responsible for displaying a screen
@@ -106,6 +112,8 @@ fun FieldLoggingScreen(subCategoryId: Int, subCategoryName: String, mainCategory
     val fieldInputValues = remember { mutableStateMapOf<Int, String>() }
     val isEditMode = loggedWasteId != -1
     var showCamera by remember { mutableStateOf(false) }
+    var currentPhotoUrl by remember { mutableStateOf<String?>(null) }
+    var capturedPhotoUri by remember { mutableStateOf<android.net.Uri?>(null) }
 
     LaunchedEffect(subCategoryId) {
         // Fetch required fields from the database when the subCategoryId changes.
@@ -121,6 +129,7 @@ fun FieldLoggingScreen(subCategoryId: Int, subCategoryName: String, mainCategory
                     requiredFields.forEach { field ->
                         fieldInputValues[field.id] = detailsJson.optString(field.fieldName, "")
                     }
+                    currentPhotoUrl = existingItem.photoUrl.takeIf { !it.isNullOrEmpty() }
                 }
             } else {
                 // Otherwise, initialise with empty values for a new entry.
@@ -222,9 +231,8 @@ fun FieldLoggingScreen(subCategoryId: Int, subCategoryName: String, mainCategory
                         colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.98f))
                     ) {
                         Column(Modifier.padding(16.dp)) {
-                            PhotosForSubCategorySection(
-                                db = db,
-                                subCategoryId = subCategoryId,
+                            PhotoForLoggedWasteSection(
+                                currentPhotoUrl = currentPhotoUrl ?: capturedPhotoUri?.toString(),
                                 onRequestCamera = { showCamera = true }
                             )
                         }
@@ -252,6 +260,7 @@ fun FieldLoggingScreen(subCategoryId: Int, subCategoryName: String, mainCategory
                             }
                         }
                         putExtra("LOGGED_DETAILS", detailsMap)
+                        capturedPhotoUri?.let { putExtra("CAPTURED_PHOTO_URI", it.toString()) }
                     }
                     activity?.setResult(Activity.RESULT_OK, resultIntent)
                     activity?.finish()
@@ -269,15 +278,8 @@ fun FieldLoggingScreen(subCategoryId: Int, subCategoryName: String, mainCategory
             Box(Modifier.fillMaxSize()) {
                 CameraCaptureScreen(
                     onCaptured = { uri ->
-                        scope.launch {
-                            db.wasteDao().insertPhoto(
-                                ItemPhoto(
-                                    subCategoryId = subCategoryId,
-                                    uri = uri.toString()
-                                )
-                            )
-                            showCamera = false
-                        }
+                        capturedPhotoUri = uri
+                        showCamera = false
                     },
                     onClose = { showCamera = false }
                 )

@@ -20,6 +20,10 @@ class ApiLoggedWasteDao : LoggedWasteDao {
         }
     }
 
+    override suspend fun uploadPhotoForLoggedWaste(wasteId: Int, base64Image: String): retrofit2.Response<String> {
+        return ApiClient.apiService.uploadPhotoForLoggedWaste(wasteId, base64Image)
+    }
+
     override suspend fun getWasteForEvent(eventId: Int): List<LoggedWaste> = ApiClient.apiService.getWasteForEvent(eventId)
 
     override suspend fun getLoggedWasteById(id: Int): LoggedWaste? = ApiClient.apiService.getLoggedWasteById(id)

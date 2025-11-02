@@ -12,6 +12,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.litterboom.data.AppDatabase
+import android.util.Base64
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.ui.text.font.FontWeight
 
 /**
  * A composable that displays a section for photos related to a specific sub-category.
@@ -54,5 +60,46 @@ fun PhotosForSubCategorySection(
                 )
             }
         }
+    }
+}
+
+/**
+ * A composable that displays a section for a single photo related to a logged waste entry.
+ * It shows a title, a button to take or retake a photo, and displays the current photo if available.
+ *
+ * @param currentPhotoUrl The current photo URL for the logged waste entry, or null if none.
+ * @param onRequestCamera A callback function to be invoked when the "Take photo" or "Retake photo" button is clicked.
+ */
+@Composable
+fun PhotoForLoggedWasteSection(
+    currentPhotoUrl: String?,
+    onRequestCamera: () -> Unit
+) {
+    // A row containing the section title and the photo button.
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text("Photo", style = MaterialTheme.typography.titleMedium)
+        Button(
+            onClick = onRequestCamera,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = Color.White
+            )
+        ) {
+            Text(if (currentPhotoUrl.isNullOrEmpty()) "Take photo" else "Retake photo", fontWeight = FontWeight.Bold)
+        }
+    }
+    Spacer(Modifier.height(8.dp))
+
+    // Display the photo if available
+    if (!currentPhotoUrl.isNullOrEmpty()) {
+        AsyncImage(
+            model = currentPhotoUrl,
+            contentDescription = "Logged waste photo",
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp)
+        )
+    } else {
+        Text("No photo taken yet.")
     }
 }
