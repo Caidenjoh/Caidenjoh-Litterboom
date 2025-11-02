@@ -54,6 +54,12 @@ interface ApiService {
     @POST("api/bags/approve")
     suspend fun approveBags(@Body eventId: Int): Unit
 
+    @PUT("api/bags/{bagId}")
+    suspend fun updateBag(@Path("bagId") bagId: Int, @Body bag: Bag): Response<Void>
+
+    @DELETE("api/bags/{bagId}")
+    suspend fun deleteBag(@Path("bagId") bagId: Int): Response<Void>
+
     // Waste Categories
     @GET("api/WasteCategories")
     suspend fun getWasteCategories(): List<WasteCategory>
