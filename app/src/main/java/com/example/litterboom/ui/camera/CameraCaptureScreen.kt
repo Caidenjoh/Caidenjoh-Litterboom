@@ -31,28 +31,33 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 
 /**
- * System Camera version:
- * - Requests CAMERA (+ WRITE_EXTERNAL_STORAGE for API <= 28)
- * - Pre-creates a MediaStore Uri
- * - Launches the phone's camera app via TakePicture()
- * - On success: returns the final Uri via onCaptured
- * - On cancel/failure: cleans up and calls onClose
+ * A Jetpack Compose screen that handles camera capture functionality.
+ * It manages camera permissions, launches the native camera application,
+ * and returns the URI of the captured image.
+ *
+ * @param onCaptured A callback function that is invoked with the [Uri] of the captured image upon success.
+ * @param onClose A callback function that is invoked when the user cancels the camera operation or if an error occurs.
  */
 @Composable
 fun CameraCaptureScreen(
     onCaptured: (Uri) -> Unit,
     onClose: () -> Unit
 ) {
+    // Get the current context, which is needed for permission checks and content resolution.
     val context = LocalContext.current
 
-    // === Runtime permissions ===
+    // Determine if WRITE_EXTERNAL_STORAGE permission is needed (only for Android API level 28 and below).
     val needsWrite = Build.VERSION.SDK_INT <= 28
+    // State to track if camera permission has been granted.
     var hasCamera by remember { mutableStateOf(false) }
+    // State to track if write permission has been granted (defaults to true if not needed).
     var hasWrite by remember { mutableStateOf(!needsWrite) }
 
+    // Create a launcher for requesting multiple permissions.
     val permLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { res ->
+        // Update permission states based on the user's response.
         hasCamera = res[Manifest.permission.CAMERA] == true ||
                 ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         if (needsWrite) {
@@ -61,11 +66,14 @@ fun CameraCaptureScreen(
         }
     }
 
+    // Effect that runs once to check and request permissions if they haven't been granted yet.
     LaunchedEffect(Unit) {
+        // Check current permission status.
         hasCamera = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         if (needsWrite) {
             hasWrite = ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
         }
+        // If permissions are missing, launch the permission request.
         if (!hasCamera || !hasWrite) {
             val perms = mutableListOf(Manifest.permission.CAMERA)
             if (needsWrite) perms += Manifest.permission.WRITE_EXTERNAL_STORAGE
@@ -73,15 +81,20 @@ fun CameraCaptureScreen(
         }
     }
 
+    // A boolean flag indicating if all required permissions are granted.
     val permissionsGranted = hasCamera && hasWrite
 
-    // === TakePicture launcher ===
+    // State to hold the URI for the image file being created, to be used by the camera app.
     var pendingUri by remember { mutableStateOf<Uri?>(null) }
+
+    // Create a launcher for the TakePicture activity. This is what opens the camera app.
     val takePictureLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.TakePicture()
     ) { success ->
         val uri = pendingUri
+        // Clear the pending URI after the camera activity returns.
         pendingUri = null
+        // If the picture was taken successfully and we have a URI.
         if (success && uri != null) {
             // Mark pending done on Q+ just in case
             if (Build.VERSION.SDK_INT >= 29) {
@@ -94,9 +107,10 @@ fun CameraCaptureScreen(
                     )
                 }
             }
+            // Notify the caller with the captured image URI.
             onCaptured(uri)
         } else {
-            // User cancelled or capture failed -> clean up
+            // If capture failed or was cancelled, delete the temporary file and notify the caller to close.
             if (uri != null) {
                 runCatching { context.contentResolver.delete(uri, null, null) }
             }
@@ -104,8 +118,8 @@ fun CameraCaptureScreen(
         }
     }
 
-    // Fire camera once permissions are granted
-    LaunchedEffect(permissionsGranted) {
+    // Effect that triggers once permissions are granted. It creates an image URI and launches the camera.
+    LaunchedEffect(permissionsGranted, takePictureLauncher) {
         if (permissionsGranted) {
             val (created, uri) = createMediaStoreImageUri(context)
             if (!created || uri == null) {
@@ -113,13 +127,14 @@ fun CameraCaptureScreen(
                 onClose()
                 return@LaunchedEffect
             }
+            // Store the created URI and launch the camera.
             pendingUri = uri
             takePictureLauncher.launch(uri)
         }
     }
 
-    // Minimal UI while we request permission/launch camera
-    if (!permissionsGranted) {
+    // UI to display when permissions have not yet been granted.
+     if (!permissionsGranted) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("Camera permission required")
@@ -133,6 +148,7 @@ fun CameraCaptureScreen(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = rememberRipple(bounded = true)
                         ) {
+                            // Manually trigger the permission request again if the user clicks "Grant".
                             val perms = mutableListOf(Manifest.permission.CAMERA)
                             if (needsWrite) perms += Manifest.permission.WRITE_EXTERNAL_STORAGE
                             permLauncher.launch(perms.toTypedArray())
@@ -154,11 +170,11 @@ fun CameraCaptureScreen(
         return
     }
 
-    // Show a lightweight "opening camera" screen with a back button
+    // UI to display while the camera is being launched.
     Box(Modifier.fillMaxSize()) {
         IconButton(
             onClick = {
-                // If user backs out before result, cancel and cleanup
+                // Handle back press: delete any pending file and call the close callback.
                 pendingUri?.let { runCatching { context.contentResolver.delete(it, null, null) } }
                 pendingUri = null
                 onClose()
@@ -179,16 +195,26 @@ fun CameraCaptureScreen(
     }
 }
 
+/**
+ * Creates a new image file entry in the MediaStore.
+ * This method handles differences between Android versions (specifically for API 29+ using Scoped Storage).
+ *
+ * @param context The application context.
+ * @param directory The subdirectory within the "Pictures" directory where the image will be saved (e.g., "LitterBoom").
+ * @return A [Pair] containing a [Boolean] indicating success and the resulting [Uri] if successful.
+ */
 private fun createMediaStoreImageUri(
     context: Context,
     directory: String = "LitterBoom"
 ): Pair<Boolean, Uri?> {
+    // Check if running on Android Q (API 29) or higher.
     val isQPlus = Build.VERSION.SDK_INT >= 29
+    // Generate a unique file name based on the current timestamp.
     val name = "waste_${System.currentTimeMillis()}.jpg"
     val values = ContentValues().apply {
         put(MediaStore.Images.Media.DISPLAY_NAME, name)
         put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-        if (isQPlus) {
+        if (isQPlus) { // For Android Q+, use RELATIVE_PATH and set IS_PENDING.
             put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/$directory")
             put(MediaStore.Images.Media.IS_PENDING, 1)
         }
@@ -196,10 +222,13 @@ private fun createMediaStoreImageUri(
         put(MediaStore.Images.Media.TITLE, name)
     }
     val resolver = context.contentResolver
+    // Determine the correct content URI based on the Android version.
     val collection: Uri =
         if (isQPlus) MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         else MediaStore.Images.Media.EXTERNAL_CONTENT_URI
 
+    // Insert the new image entry into the MediaStore.
     val uri = runCatching { resolver.insert(collection, values) }.getOrNull()
+    // Return a pair indicating success and the created URI.
     return (uri != null) to uri
 }

@@ -76,16 +76,29 @@ import com.example.litterboom.ui.theme.LitterboomTheme
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.io.Serializable
-
+/**
+ * `WasteWorkerActivity` is a ComponentActivity that serves as the main screen for waste workers.
+ * It displays a list of logged waste entries for a specific event and allows workers to add,
+ * edit, or delete entries.
+ *
+ * The activity receives event details (name and ID) via an Intent.
+ */
 class WasteWorkerActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Makes the app content draw behind the system bars (like status bar).
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
+        // Retrieve event details passed from the previous activity.
+        // Default to "No Event Selected" if the name is not provided.
         val eventName = intent.getStringExtra("SELECTED_EVENT_NAME") ?: "No Event Selected"
+        // Default to -1 if the ID is not provided.
         val eventId = intent.getIntExtra("EVENT_ID", -1)
 
+        // Set the content of the activity to be the WasteWorkerScreen composable.
+        // This is the entry point for the UI of this screen.
         setContent {
+            // Apply the app's theme to the composable content.
             LitterboomTheme {
                 WasteWorkerScreen(eventName = eventName, eventId = eventId)
             }
@@ -93,13 +106,25 @@ class WasteWorkerActivity : ComponentActivity() {
     }
 }
 
+/**
+ * Data class representing a single logged waste entry displayed in the UI.
+ * It holds information about the waste category, a descriptive subtitle, and any additional
+ * details in a map format. This class is serializable to be passed between activities.
+ *
+ * @property id The unique identifier of the log entry in the database.
+ * @property category The main category of the waste (e.g., "Plastic", "Glass").
+ * @property description A short description or sub-category of the waste (e.g., "Bottles", "Bags").
+ * @property details A map containing any extra key-value details about the logged item (e.g., "Weight": "5kg").
+ */
 data class LoggedEntry(
     val id: Int,
     val category: String,
     val description: String,
     val details: Map<String, String>
 ) : Serializable
-
+/**
+ * The main composable function for the Waste Worker screen, setting up the overall layout with a top app bar and content area.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WasteWorkerScreen(eventName: String, eventId: Int) {
@@ -119,6 +144,11 @@ fun WasteWorkerScreen(eventName: String, eventId: Int) {
     }
 }
 
+/**
+ * Composable function that defines the content of the Waste Worker screen.
+ * It includes the welcome message, event name, a filterable list of logged waste entries,
+ * and a button to add new entries.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WasteWorkerContent(contentPadding: PaddingValues,  eventName: String, eventId: Int) {

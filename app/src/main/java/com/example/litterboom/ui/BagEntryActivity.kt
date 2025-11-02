@@ -39,6 +39,10 @@ import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Delete
 
+/**
+ * BagEntryActivity is a screen where users can enter, view, and manage collected bags for a specific event.
+ * Admins have additional privileges to approve or reject all bags.
+ */
 class BagEntryActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,6 +56,12 @@ class BagEntryActivity : ComponentActivity() {
         }
     }
 }
+/**
+ * Composable function for the Bag Entry screen.
+ * It displays a form to add bags, a list of entered bags, and controls for managing them.
+ * @param eventId The ID of the current cleanup event.
+ * @param eventName The name of the current cleanup event.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BagEntryScreen(eventId: Int, eventName: String) {
@@ -65,6 +75,7 @@ fun BagEntryScreen(eventId: Int, eventName: String) {
     var errorMessage by remember { mutableStateOf("") }
     var showRejectAllDialog by remember { mutableStateOf(false) }
 
+    // LaunchedEffect to fetch initial bag data and approval status from the local database.
     LaunchedEffect(Unit) {
         bags = db.bagDao().getBagsByEvent(eventId)
         isApproved = db.bagDao().areBagsApproved(eventId)
@@ -113,7 +124,7 @@ fun BagEntryScreen(eventId: Int, eventName: String) {
                 )
             }
 
-            //input form hides if approved
+            // The input form for adding new bags is hidden if the bags for this event have already been approved.
             if (!isApproved) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -191,7 +202,7 @@ fun BagEntryScreen(eventId: Int, eventName: String) {
                     Text("Add Bag")
                 }
             }
-            //bag list with white block background
+            // A white block background for the list of bag entries to improve contrast and readability.
             Text("Bag Entries", style = MaterialTheme.typography.titleMedium, color = Color.White)
             Box(
                 modifier = Modifier
@@ -214,9 +225,11 @@ fun BagEntryScreen(eventId: Int, eventName: String) {
                             var showEditDialog by remember { mutableStateOf(false) }
                             var showDeleteDialog by remember { mutableStateOf(false) }
 
+                            // Dialog for editing a bag's details.
                             if (showEditDialog) {
                                 EditBagDialog(
                                     bag = bag,
+                                    // onDismiss is called when the user cancels the edit operation.
                                     onDismiss = { showEditDialog = false },
                                     onSave = { updatedBag ->
                                         scope.launch {
@@ -233,6 +246,7 @@ fun BagEntryScreen(eventId: Int, eventName: String) {
                                 )
                             }
 
+                            // Confirmation dialog for deleting a bag.
                             if (showDeleteDialog) {
                                 AlertDialog(
                                     onDismissRequest = { showDeleteDialog = false },
@@ -262,6 +276,7 @@ fun BagEntryScreen(eventId: Int, eventName: String) {
                                 )
                             }
 
+                            // Card representing a single bag entry in the list.
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -280,6 +295,7 @@ fun BagEntryScreen(eventId: Int, eventName: String) {
                                         Text("${bag.weight} kg", color = MaterialTheme.colorScheme.primary)
                                     }
 
+                                    // Edit and Delete buttons are only shown if bags are not yet approved.
                                     if (!isApproved) {
                                         Row {
                                             IconButton(onClick = { showEditDialog = true }) {
@@ -298,7 +314,7 @@ fun BagEntryScreen(eventId: Int, eventName: String) {
             }
 
 
-            //total summary
+            // Summary section displaying the total number of bags and their combined weight.
             val totalBags = bags.size
             val totalWeight = bags.sumOf { it.weight }.toString()
             Column {
@@ -306,7 +322,7 @@ fun BagEntryScreen(eventId: Int, eventName: String) {
                 Text("Total Weight: $totalWeight kg", color = Color.White)
             }
 
-            //admin approval button
+            // Admin-only controls for approving or rejecting all bags for the event.
             if (CurrentUserManager.isAdmin() && !isApproved) {
                 Column {
                     Row(
@@ -377,7 +393,7 @@ fun BagEntryScreen(eventId: Int, eventName: String) {
                 }
             }
 
-            //navigation to WasteWorkerActivity if bags are approved
+            // If bags are approved, a button appears to navigate to the WasteWorkerActivity.
             if (isApproved) {
                 Button(
                     onClick = {
@@ -402,6 +418,13 @@ fun BagEntryScreen(eventId: Int, eventName: String) {
     }
 }
 
+/**
+ * A dialog composable for editing an existing bag's number and weight.
+ * Includes validation for the input fields.
+ * @param bag The [Bag] object to be edited.
+ * @param onDismiss Lambda function to call when the dialog is dismissed.
+ * @param onSave Lambda function to call with the updated [Bag] when the save button is clicked.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditBagDialog(bag: Bag, onDismiss: () -> Unit, onSave: (Bag) -> Unit) {
@@ -455,6 +478,10 @@ fun EditBagDialog(bag: Bag, onDismiss: () -> Unit, onSave: (Bag) -> Unit) {
     )
 }
 
+/**
+ * A preview composable for the [BagEntryScreen].
+ * This allows for easy visualization of the screen layout in Android Studio's preview pane.
+ */
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun BagEntryScreenPreview() {

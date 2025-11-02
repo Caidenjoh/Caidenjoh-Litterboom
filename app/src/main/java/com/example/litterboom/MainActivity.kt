@@ -164,8 +164,18 @@ import java.util.Date
 import java.util.Locale
 
 
+/**
+ * The main entry point of the application.
+ * This activity hosts the entire Jetpack Compose UI, including navigation,
+ * login, and various informational and administrative screens.
+ * It also handles the initialization of essential services like Google Places API.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
+    /**
+     * Called when the activity is first created. This is where you should do all of your normal
+     * static set up: create views, bind data to lists, etc.
+     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -180,6 +190,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
         } catch (e: Exception) {
+            // Log and display any errors during Places SDK initialization.
             e.printStackTrace()
             Toast.makeText(this, "Error initializing Places SDK: ${e.message}", Toast.LENGTH_LONG).show()
         }
@@ -194,6 +205,11 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/**
+ * The root composable that sets up the main application structure with a [ModalNavigationDrawer].
+ * It manages the current screen state and handles navigation logic between different screens.
+ * It also restores the user session if a user was previously logged in.
+ */
 @Composable
 fun AppWithNavDrawer() {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -202,12 +218,15 @@ fun AppWithNavDrawer() {
     var loggedIn by rememberSaveable { mutableStateOf(false) }
     val isAdmin = CurrentUserManager.isAdmin()
     val context = LocalContext.current
+
+    // Dynamically generate the list of navigation items based on login and admin status.
     val navItems = remember(loggedIn, isAdmin) {
         listOf("Source to Sea", "Interception", "Education", "Innovation", "Our Story", "The Team", "Contact").plus(
             if (loggedIn && isAdmin) listOf("Admin Panel") else emptyList()
         ).plus(if (loggedIn) listOf("Event Selection", "Logout") else emptyList())
     }
 
+    // On first composition, check for a saved user session and log them in automatically.
     LaunchedEffect(Unit) {
         val savedUserId = SessionManager.getSavedUserId(context)
         if (savedUserId != -1) {
@@ -220,6 +239,7 @@ fun AppWithNavDrawer() {
         }
     }
 
+    // The main navigation drawer container.
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
@@ -230,12 +250,14 @@ fun AppWithNavDrawer() {
                 onItemClick = { selectedItem ->
                     scope.launch { drawerState.close() }
                     when (selectedItem) {
+                        // Handle logout action.
                         "Logout" -> {
                             SessionManager.clearSession(context)
                             CurrentUserManager.logout()
                             loggedIn = false
                             currentScreen = "Source to Sea"
                         }
+                        // Handle navigation to other screens.
                         "Admin Panel" -> currentScreen = "Admin Panel"
                         "Event Selection" -> {
                             if (loggedIn) {
@@ -251,6 +273,7 @@ fun AppWithNavDrawer() {
             )
         }
     ) {
+        // Use Crossfade to animate transitions between different screens.
         Crossfade(targetState = currentScreen, label = "ScreenCrossfade") { screen ->
             when (screen) {
                 "Source to Sea" -> LoginScreenWithSwipeableSheet(loggedIn, { loggedIn = it }, { scope.launch { drawerState.open() } },
@@ -278,6 +301,7 @@ fun AppWithNavDrawer() {
                 "Bag Logs" -> AdminBagLogScreen(onBackClick = { currentScreen = "Admin Panel" })
                 "Event Logs" -> EventLogsScreen(onBackClick = { currentScreen = "Admin Panel" })
                 else -> {
+                    // Fallback screen for any unhandled navigation state.
                     Box(modifier = Modifier.fillMaxSize().background(Color.LightGray), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(text = screen, fontSize = 24.sp)
@@ -291,8 +315,13 @@ fun AppWithNavDrawer() {
     }
 }
 @OptIn(ExperimentalMaterial3Api::class)
+
+/**
+ * A screen that displays information about The Litterboom Project's interception technology.
+ * It includes a title, an image, and descriptive text.
+ */
 @Composable
-fun InterceptionScreen(onBackClick: () -> Unit) { //interception info page
+fun InterceptionScreen(onBackClick: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -358,8 +387,12 @@ fun InterceptionScreen(onBackClick: () -> Unit) { //interception info page
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
+/**
+ * A screen that displays information about The Litterboom Project's educational initiatives.
+ * It features a title, image, and text explaining their approach to education.
+ */
 @Composable
-fun EducationScreen(onBackClick: () -> Unit) { //education screen
+fun EducationScreen(onBackClick: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -425,6 +458,10 @@ fun EducationScreen(onBackClick: () -> Unit) { //education screen
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
+/**
+ * A screen dedicated to explaining The Litterboom Project's innovation and circular economy efforts.
+ * It includes an image and text about the 'Wastepreneur Programme'.
+ */
 @Composable
 fun InnovationScreen(onBackClick: () -> Unit) {
     Scaffold(
@@ -492,6 +529,10 @@ fun InnovationScreen(onBackClick: () -> Unit) {
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
+/**
+ * A screen that tells the story of The Litterboom Project's origin.
+ * It features an image of the founder and text describing the project's history.
+ */
 @Composable
 fun OurStoryScreen(onBackClick: () -> Unit) {
     Scaffold(
@@ -559,6 +600,10 @@ fun OurStoryScreen(onBackClick: () -> Unit) {
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
+/**
+ * A screen introducing the key members of The Litterboom Project team.
+ * It displays a list of team members with their names, roles, and a short biography.
+ */
 @Composable
 fun TheTeamScreen(onBackClick: () -> Unit) {
     // Data class to hold team member information
@@ -631,6 +676,10 @@ fun TheTeamScreen(onBackClick: () -> Unit) {
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
+/**
+ * A screen providing contact information for The Litterboom Project.
+ * It lists general enquiries email and office addresses for Durban and Cape Town.
+ */
 @Composable
 fun ContactScreen(onBackClick: () -> Unit) {
     Scaffold(
@@ -728,6 +777,12 @@ fun ContactScreen(onBackClick: () -> Unit) {
 
 
 @OptIn(ExperimentalMaterial3Api::class)
+/**
+ * The main screen for the Admin Panel, providing a central hub for administrative tasks.
+ * It features a top app bar with a menu button and a grid of icon buttons for navigation.
+ * @param onMenuClick A lambda to open the navigation drawer.
+ * @param navigateTo A lambda function that takes a screen route string to navigate to other admin screens.
+ */
 @Composable
 fun AdminPanelScreen(onMenuClick: () -> Unit, navigateTo: (String) -> Unit) {
 
@@ -773,10 +828,20 @@ fun AdminPanelScreen(onMenuClick: () -> Unit, navigateTo: (String) -> Unit) {
     }
 }
 
+/**
+ * A composable that displays a grid of icon buttons for the Admin Panel.
+ * Each button navigates to a specific administrative function.
+ * @param onAddUserClick Lambda for navigating to the Add User screen.
+ * @param onCreateEventClick Lambda for navigating to the Create Event screen.
+ * @param onEventListClick Lambda for navigating to the Event List screen.
+ * @param onManageCategoriesClick Lambda for navigating to the Manage Categories screen.
+ * @param onManageFieldsClick Lambda for navigating to the Manage Fields screen.
+ * @param onEventLogsClick Lambda for navigating to the Event Logs screen.
+ * @param onBagLogClick Lambda for navigating to the Bag Logs screen.
+ */
 @Composable
 fun AdminMenu(onAddUserClick: () -> Unit, onCreateEventClick: () -> Unit, onEventListClick: () -> Unit, onManageCategoriesClick: () -> Unit, onManageFieldsClick: () -> Unit, onEventLogsClick: () -> Unit, onBagLogClick: () -> Unit) {
 
-    // list of all menu items.
     val menuItems = listOf(
         "Create Event" to Icons.Default.Event,
         "Event List" to Icons.AutoMirrored.Filled.ViewList,
@@ -787,7 +852,7 @@ fun AdminMenu(onAddUserClick: () -> Unit, onCreateEventClick: () -> Unit, onEven
         "Add User" to Icons.Default.PersonAdd
     )
 
-    // LazyVerticalGrid for flexibility
+    // A grid layout for the admin menu items for a clean and responsive UI.
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
         modifier = Modifier.fillMaxSize(),
@@ -812,6 +877,11 @@ fun AdminMenu(onAddUserClick: () -> Unit, onCreateEventClick: () -> Unit, onEven
     }
 }
 
+/**
+ * A screen for administrators to view bag logs. It's a two-step process:
+ * first, select an event, then view the detailed bag logs for that event.
+ * @param onBackClick Lambda to navigate back from the event selection view.
+ */
 @Composable
 fun AdminBagLogScreen(onBackClick: () -> Unit) {
     var selectedEvent by remember { mutableStateOf<Event?>(null) }
@@ -844,6 +914,12 @@ fun AdminBagLogScreen(onBackClick: () -> Unit) {
     }
 }
 
+/**
+ * A private composable responsible for displaying a list of events for an admin to select from.
+ * Once an event is selected, it triggers the [onEventSelected] callback.
+ * @param onBackClick Lambda to navigate back to the previous screen.
+ * @param onEventSelected Callback invoked with the selected [Event].
+ */
 @Composable
 private fun EventSelectionForBagLogs(onBackClick: () -> Unit, onEventSelected: (Event) -> Unit) {
     val context = LocalContext.current
@@ -887,6 +963,12 @@ private fun EventSelectionForBagLogs(onBackClick: () -> Unit, onEventSelected: (
     }
 }
 
+/**
+ * A private composable that displays the detailed bag log information for a specific [Event].
+ * It shows a list of all logged bags with their weights and provides a summary of total bags and weight.
+ * @param event The [Event] for which to display bag logs.
+ * @param onBack Callback to return to the event selection screen.
+ */
 @Composable
 private fun BagLogDetailScreen(event: Event, onBack: () -> Unit) {
     val context = LocalContext.current
@@ -894,7 +976,7 @@ private fun BagLogDetailScreen(event: Event, onBack: () -> Unit) {
     val db = remember { AppDatabase.getDatabase(context) }
 
     LaunchedEffect(event) {
-
+        // Fetch bags for the specific event from the local database.
         bags = db.bagDao().getBagsByEvent(event.id)
     }
 
@@ -966,6 +1048,11 @@ private fun BagLogDetailScreen(event: Event, onBack: () -> Unit) {
     }
 }
 
+/**
+ * A screen for administrators to view detailed waste data logs for events.
+ * Similar to [AdminBagLogScreen], it first requires selecting an event.
+ * @param onBackClick Lambda to navigate back from the event selection view.
+ */
 @Composable
 fun EventLogsScreen(onBackClick: () -> Unit) {
     var selectedEvent by remember { mutableStateOf<Event?>(null) }
@@ -998,6 +1085,12 @@ fun EventLogsScreen(onBackClick: () -> Unit) {
     }
 }
 
+/**
+ * A private composable that allows an admin to select an event to view its waste logs.
+ * It fetches and displays all available events.
+ * @param onBackClick Lambda to navigate back.
+ * @param onEventSelected Callback invoked with the selected [Event].
+ */
 @Composable
 private fun EventSelectionForLogs(onBackClick: () -> Unit, onEventSelected: (Event) -> Unit) {
     val context = LocalContext.current
@@ -1040,6 +1133,13 @@ private fun EventSelectionForLogs(onBackClick: () -> Unit, onEventSelected: (Eve
     }
 }
 
+/**
+ * A screen displaying the detailed logged waste items for a selected event.
+ * It shows a list of all waste items, who logged them, and their details.
+ * It also includes a feature to export all the event data to an XLSX (Excel) file.
+ * @param event The event whose logs are to be displayed.
+ * @param onBack Callback to return to the event selection screen.
+ */
 @Suppress("ExperimentalMaterial3Api")
 @Composable
 private fun LoggedWasteDetailScreen(event: Event, onBack: () -> Unit) {
@@ -1365,6 +1465,12 @@ private fun LoggedWasteDetailScreen(event: Event, onBack: () -> Unit) {
 
 
 @OptIn(ExperimentalMaterial3Api::class)
+/**
+ * A styled square icon button used in the Admin Panel menu.
+ * @param text The text label displayed below the icon.
+ * @param icon The vector icon to be displayed.
+ * @param onClick The lambda function to be executed when the button is clicked.
+ */
 @Composable
 fun AdminIconButton(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
     Card(
@@ -1407,6 +1513,11 @@ fun AdminIconButton(text: String, icon: androidx.compose.ui.graphics.vector.Imag
 
 
 @OptIn(ExperimentalMaterial3Api::class)
+/**
+ * An admin screen for adding new users to the system.
+ * It provides fields for username, password, and role, and lists existing users.
+ * @param onBackClick Lambda to navigate back to the admin panel.
+ */
 @Composable
 fun AddUserScreen(onBackClick: () -> Unit) {
     val context = LocalContext.current
@@ -1619,11 +1730,20 @@ fun AddUserScreen(onBackClick: () -> Unit) {
     }
 }
 
-// Helper function to capitalise words
+/**
+ * An extension function for [String] to capitalize the first letter of each word.
+ * @return A new string with each word capitalized.
+ */
 fun String.capitalizeWords(): String = this.split(" ")
     .joinToString(" ") { it.replaceFirstChar { char -> if (char.isLowerCase()) char.titlecase(Locale.getDefault()) else char.toString() } }
 
 @OptIn(ExperimentalMaterial3Api::class)
+/**
+ * A screen for administrators to manage waste categories and sub-categories.
+ * Allows creating new main categories and viewing/managing existing ones.
+ * Admins can also archive/unarchive categories.
+ * @param onBackClick A lambda function to navigate back to the previous screen.
+ */
 @Composable
 fun ManageCategoriesScreen(onBackClick: () -> Unit) {
     val context = LocalContext.current
@@ -1705,7 +1825,15 @@ fun ManageCategoriesScreen(onBackClick: () -> Unit) {
     }
 }
 
-// Helper for the Category List
+/**
+ * A composable that represents a single item in the list of main waste categories on the [ManageCategoriesScreen].
+ * It displays the category name, a toggle for its active status, and can be expanded to show sub-categories.
+ * @param category The [WasteCategory] to display.
+ * @param allFields A list of all available [LoggingField]s to be used by sub-categories.
+ * @param isExpanded Whether the item is currently expanded to show details.
+ * @param onExpand A lambda to toggle the expanded state.
+ * @param onStatusChange A lambda to handle changes to the category's active status.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CategoryItem(
@@ -1802,7 +1930,13 @@ fun CategoryItem(
     }
 }
 
-// Helper for the Category Item
+/**
+ * A composable representing a single sub-category item within an expanded [CategoryItem].
+ * It allows for managing the sub-category's status, assigning logging fields to it, and viewing assigned fields.
+ * @param subCategory The [WasteSubCategory] data to display.
+ * @param allFields A list of active [LoggingField]s that can be assigned.
+ * @param onStatusChange A lambda to handle changes in the sub-category's active status.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SubCategoryItem(
@@ -1893,6 +2027,11 @@ fun SubCategoryItem(
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
+/**
+ * An admin screen for managing the types of fields that can be logged for waste items (e.g., "Colour", "Brand").
+ * It allows creating new fields and archiving/unarchiving existing ones.
+ * @param onBackClick A lambda function to navigate back.
+ */
 @Composable
 fun ManageFieldsScreen(onBackClick: () -> Unit) {
     val context = LocalContext.current
@@ -1989,8 +2128,16 @@ fun ManageFieldsScreen(onBackClick: () -> Unit) {
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
+/**
+ * The main screen of the application, which combines the home page content with a swipeable
+ * bottom sheet for logging in.
+ * @param loggedIn A boolean indicating if the user is currently logged in.
+ * @param onLoginChange A callback that is invoked when the login status changes.
+ * @param onMenuClick A lambda to open the navigation drawer.
+ * @param navigateTo A lambda to handle navigation to other screens after a successful login.
+ */
 @Composable
-fun LoginScreenWithSwipeableSheet(loggedIn: Boolean, onLoginChange: (Boolean) -> Unit, onMenuClick: () -> Unit,navigateTo: (String) -> Unit) { //swipeable sheet for login page
+fun LoginScreenWithSwipeableSheet(loggedIn: Boolean, onLoginChange: (Boolean) -> Unit, onMenuClick: () -> Unit,navigateTo: (String) -> Unit) {
     val sheetState = rememberStandardBottomSheetState(
         initialValue = SheetValue.PartiallyExpanded,
         skipHiddenState = true
@@ -2018,7 +2165,7 @@ fun LoginScreenWithSwipeableSheet(loggedIn: Boolean, onLoginChange: (Boolean) ->
 
             )
         },
-        topBar = { //top bar for app
+        topBar = {
 
             CenterAlignedTopAppBar(
                 title = {
@@ -2060,6 +2207,14 @@ fun LoginScreenWithSwipeableSheet(loggedIn: Boolean, onLoginChange: (Boolean) ->
     }
 }
 
+/**
+ * The content of the modal navigation drawer.
+ * It displays the Litterboom header, user login status, and a list of navigation items.
+ * @param currentScreen The route of the currently displayed screen.
+ * @param navItems The list of navigation item labels to display.
+ * @param isAdmin A boolean indicating if the current user has admin privileges.
+ * @param onItemClick A callback that is invoked when a navigation item is clicked.
+ */
 @Composable
 fun AppDrawerContent(
     currentScreen: String,
@@ -2177,8 +2332,17 @@ fun AppDrawerContent(
     }
 }
 
+/**
+ * The content displayed inside the swipeable bottom sheet on the main screen.
+ * It handles both the collapsed "Login" prompt and the expanded login form.
+ * @param isExpanded Whether the sheet is fully expanded.
+ * @param loggedIn A boolean indicating if a user is currently logged in.
+ * @param onLoginClick A lambda to handle the action of expanding the sheet.
+ * @param onLoginSuccess A callback invoked upon successful login.
+ * @param navigateTo A lambda for navigating to another screen post-login.
+ */
 @Composable
-fun LoginSheetContent(isExpanded: Boolean, loggedIn: Boolean, onLoginClick: () -> Unit, onLoginSuccess: () -> Unit,navigateTo: (String) -> Unit) { //login sheet content
+fun LoginSheetContent(isExpanded: Boolean, loggedIn: Boolean, onLoginClick: () -> Unit, onLoginSuccess: () -> Unit,navigateTo: (String) -> Unit) {
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -2188,6 +2352,7 @@ fun LoginSheetContent(isExpanded: Boolean, loggedIn: Boolean, onLoginClick: () -
     var rememberMe by remember { mutableStateOf(false) }
     var loginMessage by remember { mutableStateOf("") }
 
+    // Reset fields when the user logs out.
     LaunchedEffect(loggedIn) {
         if (!loggedIn) {
             username = ""
@@ -2214,6 +2379,7 @@ fun LoginSheetContent(isExpanded: Boolean, loggedIn: Boolean, onLoginClick: () -
         )
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Determine the header text based on login state.
         val headerText = if (CurrentUserManager.isLoggedIn()) "Logged In" else "Login"
 
         if (!isExpanded) {
@@ -2357,7 +2523,7 @@ fun LoginSheetContent(isExpanded: Boolean, loggedIn: Boolean, onLoginClick: () -
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
-            } else { // show when the user is already logged in
+            } else { // UI to show when the user is already logged in.
                 Text(
                     "You are logged in.",
                     style = MaterialTheme.typography.headlineSmall,
@@ -2369,6 +2535,12 @@ fun LoginSheetContent(isExpanded: Boolean, loggedIn: Boolean, onLoginClick: () -
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
+/**
+ * An admin screen for creating new events.
+ * Provides fields for event name, date (via a date picker), and location (via Google Places Autocomplete).
+ * @param onEventCreated A callback invoked with the newly created event data.
+ * @param onBackClick A lambda to navigate back to the admin panel.
+ */
 @Composable
 fun CreateEventScreen(onEventCreated: (Event) -> Unit, onBackClick: () -> Unit) {
     val context = LocalContext.current
@@ -2468,6 +2640,11 @@ fun CreateEventScreen(onEventCreated: (Event) -> Unit, onBackClick: () -> Unit) 
     }
 }
 
+/**
+ * An admin screen that lists all created events.
+ * It allows filtering events by a date range and provides a toggle to open or close each event.
+ * @param onBackClick A lambda to navigate back to the admin panel.
+ */
 @Composable
 fun EventListScreen(onBackClick: () -> Unit) {
 
@@ -2624,9 +2801,14 @@ fun EventListScreen(onBackClick: () -> Unit) {
     }
 }
 
+/**
+ * A composable that displays a piece of text with a clickable link to the Litterboom Project website.
+ * Uses [AnnotatedString] to create a hyperlink within the text.
+ * @param modifier Modifier for this composable.
+ */
 @Suppress("DEPRECATION")
 @Composable
-fun ClickableWebsiteText(modifier: Modifier = Modifier) { //clickable text for redirect to website
+fun ClickableWebsiteText(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val url = "https://www.thelitterboomproject.com/"
 
@@ -2657,8 +2839,12 @@ fun ClickableWebsiteText(modifier: Modifier = Modifier) { //clickable text for r
     )
 }
 
+/**
+ * The background content displayed on the main screen when the login sheet is collapsed.
+ * It shows promotional text and a collage of images.
+ */
 @Composable
-fun CollapsedStateContent() { //background content when login is collapsed
+fun CollapsedStateContent() {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -2735,8 +2921,12 @@ fun CollapsedStateContent() { //background content when login is collapsed
     }
 }
 
+/**
+ * The background content displayed on the main screen when the login sheet is expanded.
+ * This version has slightly different text content.
+ */
 @Composable
-fun ExpandedStateContent() { //background content when login is expanded
+fun ExpandedStateContent() {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -2806,6 +2996,9 @@ fun ExpandedStateContent() { //background content when login is expanded
 }
 
 
+/**
+ * A preview composable for visualizing the [AppWithNavDrawer] component in Android Studio.
+ */
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun LoginScreenPreview() {
