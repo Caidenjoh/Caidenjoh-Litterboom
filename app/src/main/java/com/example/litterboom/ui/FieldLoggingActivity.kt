@@ -337,6 +337,16 @@ fun FieldLoggingScreen(subCategoryId: Int, subCategoryName: String, mainCategory
             // and finishing the activity.
             Button(
                 onClick = {
+                    // Validate that all required fields have input
+                    val missingFields = requiredFields.filter { field ->
+                        val value = fieldInputValues[field.id]
+                        value.isNullOrBlank()
+                    }
+                    if (missingFields.isNotEmpty()) {
+                        Toast.makeText(context, "Please fill all required fields", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
                     val activity = context as? Activity
                     val resultIntent = Intent().apply {
                         putExtra("LOGGED_CATEGORY", mainCategoryName)
