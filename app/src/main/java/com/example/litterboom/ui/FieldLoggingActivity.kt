@@ -1,10 +1,19 @@
 package com.example.litterboom.ui
 
+import android.Manifest
 import android.app.Activity
+import android.content.ContentValues
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.provider.MediaStore
+import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,11 +55,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import com.example.litterboom.data.AppDatabase
 import com.example.litterboom.data.ItemPhoto
 import com.example.litterboom.data.LoggingField
-import com.example.litterboom.ui.camera.CameraCaptureScreen
 import com.example.litterboom.ui.logging.PhotoForLoggedWasteSection
 import com.example.litterboom.ui.theme.DarkJungleGreen
 import com.example.litterboom.ui.theme.LightTeal
@@ -66,6 +75,65 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.ui.platform.LocalContext
 import android.content.ContentResolver
+
+/**
+ * Creates a new image file entry in the MediaStore.
+ * This method handles differences between Android versions (specifically for API 29+ using Scoped Storage).
+ *
+ * @param context The application context.
+ * @param directory The subdirectory within the "Pictures" directory where the image will be saved (e.g., "LitterBoom").
+ * @return A [Pair] containing a [Boolean] indicating success and the resulting [Uri] if successful.
+ */
+private fun createMediaStoreImageUri(
+    context: android.content.Context,
+    directory: String = "LitterBoom"
+): Pair<Boolean, Uri?> {
+    // Check if running on Android Q (API 29) or higher.
+    val isQPlus = Build.VERSION.SDK_INT >= 29
+    // Generate a unique file name based on the current timestamp.
+    val name = "waste_${System.currentTimeMillis()}.jpg"
+    val values = ContentValues().apply {
+        put(MediaStore.Images.Media.DISPLAY_NAME, name)
+        put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+        if (isQPlus) { // For Android Q+, use RELATIVE_PATH and set IS_PENDING.
+            put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/$directory")
+            put(MediaStore.Images.Media.IS_PENDING, 1)
+        }
+        put(MediaStore.Images.Media.DATE_TAKEN, System.currentTimeMillis())
+        put(MediaStore.Images.Media.TITLE, name)
+    }
+    val resolver = context.contentResolver
+    // Determine the correct content URI based on the Android version.
+    val collection: Uri =
+        if (isQPlus) MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        else MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+
+    // Insert the new image entry into the MediaStore.
+    val uri = runCatching { resolver.insert(collection, values) }.getOrNull()
+    // Return a pair indicating success and the created URI.
+    return (uri != null) to uri
+}
+
+/**
+ * Formats a given string to Title Case.
+ * Each word in the input string is transformed so that its first letter is uppercase
+ * and the remaining letters are lowercase.
+ *
+ * Example: "hello world" becomes "Hello World".
+ * @param input The string to be formatted.
+ * @return The Title Cased version of the input string.
+ */
+private fun formatToTitleCase(input: String): String {
+    return input.split(" ").joinToString(" ") { word ->
+        if (word.isNotEmpty()) {
+            // Capitalise first letter, lowercase the rest
+            word.first().uppercase() + word.drop(1).lowercase()
+        } else {
+            "" // Handle potential multiple spaces
+        }
+    }
+}
+
 
 /**
  * FieldLoggingActivity is an Android Activity responsible for displaying a screen
@@ -111,9 +179,83 @@ fun FieldLoggingScreen(subCategoryId: Int, subCategoryName: String, mainCategory
     var requiredFields by remember { mutableStateOf<List<LoggingField>>(emptyList()) }
     val fieldInputValues = remember { mutableStateMapOf<Int, String>() }
     val isEditMode = loggedWasteId != -1
-    var showCamera by remember { mutableStateOf(false) }
     var currentPhotoUrl by remember { mutableStateOf<String?>(null) }
     var capturedPhotoUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
+
+    // Camera launcher
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success && pendingCameraUri != null) {
+            capturedPhotoUri = pendingCameraUri
+            // Mark as pending done on Q+
+            if (Build.VERSION.SDK_INT >= 29) {
+                runCatching {
+                    context.contentResolver.update(
+                        pendingCameraUri!!,
+                        ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) },
+                        null, null
+                    )
+                }
+            }
+        } else if (pendingCameraUri != null) {
+            // Clean up failed capture
+            runCatching { context.contentResolver.delete(pendingCameraUri!!, null, null) }
+        }
+        pendingCameraUri = null
+    }
+
+    // Camera permission launcher
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val cameraGranted = permissions[Manifest.permission.CAMERA] == true
+        val writeGranted = if (Build.VERSION.SDK_INT <= 28) {
+            permissions[Manifest.permission.WRITE_EXTERNAL_STORAGE] == true
+        } else true
+
+        if (cameraGranted && writeGranted) {
+            // Permissions granted, proceed with camera
+            val result = createMediaStoreImageUri(context)
+            if (result.first && result.second != null) {
+                pendingCameraUri = result.second
+                cameraLauncher.launch(result.second!!)
+            } else {
+                Toast.makeText(context, "Cannot create output file", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            Toast.makeText(context, "Camera permissions are required", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun requestCamera() {
+        val needsWrite = Build.VERSION.SDK_INT <= 28
+        val cameraGranted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+        val writeGranted = if (needsWrite) {
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
+            ) == PackageManager.PERMISSION_GRANTED
+        } else true
+
+        if (cameraGranted && writeGranted) {
+            val result = createMediaStoreImageUri(context)
+            if (result.first && result.second != null) {
+                pendingCameraUri = result.second
+                cameraLauncher.launch(result.second!!)
+            } else {
+                Toast.makeText(context, "Cannot create output file", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            val permissions = mutableListOf(Manifest.permission.CAMERA)
+            if (needsWrite) permissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            permissionLauncher.launch(permissions.toTypedArray())
+        }
+    }
 
     LaunchedEffect(subCategoryId) {
         // Fetch required fields from the database when the subCategoryId changes.
@@ -152,7 +294,11 @@ fun FieldLoggingScreen(subCategoryId: Int, subCategoryName: String, mainCategory
             // Top app bar with back button and title
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { (context as? Activity)?.finish() }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color.White
+                    )
                 }
                 Spacer(Modifier.width(16.dp))
                 Text(
@@ -176,7 +322,7 @@ fun FieldLoggingScreen(subCategoryId: Int, subCategoryName: String, mainCategory
                     val keyboardType = when {
                         isWeightField -> KeyboardType.Decimal
                         isPiecesField -> KeyboardType.Number // Use Number for integers
-                        else          -> KeyboardType.Text
+                        else -> KeyboardType.Text
                     }
 
                     val decimalRegex = remember { Regex("^\\d*\\.?\\d*\$") }
@@ -192,19 +338,26 @@ fun FieldLoggingScreen(subCategoryId: Int, subCategoryName: String, mainCategory
                                         fieldInputValues[field.id] = newValue
                                     }
                                 }
+
                                 isPiecesField -> {
                                     // Allow valid integer input
                                     if (newValue.isEmpty() || newValue.matches(integerRegex)) {
                                         fieldInputValues[field.id] = newValue
                                     }
                                 }
+
                                 else -> {
                                     // Apply auto-formatting for text fields
                                     fieldInputValues[field.id] = formatToTitleCase(newValue)
                                 }
                             }
                         },
-                        label = { Text(field.fieldName, style = MaterialTheme.typography.labelLarge) },
+                        label = {
+                            Text(
+                                field.fieldName,
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                        },
                         textStyle = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -233,7 +386,7 @@ fun FieldLoggingScreen(subCategoryId: Int, subCategoryName: String, mainCategory
                         Column(Modifier.padding(16.dp)) {
                             PhotoForLoggedWasteSection(
                                 currentPhotoUrl = currentPhotoUrl ?: capturedPhotoUri?.toString(),
-                                onRequestCamera = { showCamera = true }
+                                onRequestCamera = { requestCamera() }
                             )
                         }
                     }
@@ -268,41 +421,11 @@ fun FieldLoggingScreen(subCategoryId: Int, subCategoryName: String, mainCategory
                 modifier = Modifier.fillMaxWidth().height(50.dp)
             ) {
                 // Change button text based on mode
-                Text(if (isEditMode) "Update Entry" else "Complete Entry", fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-
-        // Full-screen camera overlay
-        if (showCamera) {
-            Box(Modifier.fillMaxSize()) {
-                CameraCaptureScreen(
-                    onCaptured = { uri ->
-                        capturedPhotoUri = uri
-                        showCamera = false
-                    },
-                    onClose = { showCamera = false }
+                Text(
+                    if (isEditMode) "Update Entry" else "Complete Entry",
+                    fontWeight = FontWeight.Bold
                 )
             }
-        }
-    }
-
-/**
- * Formats a given string to Title Case.
- * Each word in the input string is transformed so that its first letter is uppercase
- * and the remaining letters are lowercase.
- *
- * Example: "hello world" becomes "Hello World".
- * @param input The string to be formatted.
- * @return The Title Cased version of the input string.
- */
-private fun formatToTitleCase(input: String): String {
-    return input.split(" ").joinToString(" ") { word ->
-        if (word.isNotEmpty()) {
-            // Capitalise first letter, lowercase the rest
-            word.first().uppercase() + word.drop(1).lowercase()
-        } else {
-            "" // Handle potential multiple spaces
         }
     }
 }
