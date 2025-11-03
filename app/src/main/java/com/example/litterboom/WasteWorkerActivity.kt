@@ -255,11 +255,33 @@ fun WasteWorkerContent(contentPadding: PaddingValues, eventName: String, eventId
                         try {
                             val existing = AppDatabase.getDatabase(context).loggedWasteDao().getLoggedWasteById(editedId)
                             val userIdForUpdate = existing?.userId ?: userId  // Preserve original userId, fallback to current
-                            val updatedEntry = LoggedEntry(editedId, category, description, detailsMap)
+
+                            // Handle photo update for edited entries
+                            var photoUrl = existing?.photoUrl
+                            if (capturedPhotoUri != null) {
+                                try {
+                                    val base64Image = convertUriToBase64(context, capturedPhotoUri)
+                                    if (base64Image != null) {
+                                        val response = AppDatabase.getDatabase(context).loggedWasteDao().uploadPhotoForLoggedWaste(editedId, base64Image)
+                                        if (response.isSuccessful) {
+                                            val responseBody = response.body()
+                                            photoUrl = responseBody?.string()
+                                        } else {
+                                            Toast.makeText(context, "Photo upload failed: ${response.message()}", Toast.LENGTH_SHORT).show()
+                                        }
+                                    } else {
+                                        Toast.makeText(context, "Failed to process photo", Toast.LENGTH_SHORT).show()
+                                    }
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Photo upload failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+
+                            val updatedEntry = LoggedEntry(editedId, category, description, detailsMap, photoUrl)
                             currentSessionEntries = currentSessionEntries.map { entry ->
                                 if (entry.id == editedId) updatedEntry else entry
                             }
-                            val loggedWaste = LoggedWaste(editedId, eventId, userIdForUpdate, category, description, detailsJson)
+                            val loggedWaste = LoggedWaste(editedId, eventId, userIdForUpdate, category, description, detailsJson, photoUrl ?: "")
                             AppDatabase.getDatabase(context).loggedWasteDao().updateLoggedWaste(loggedWaste)
                             Toast.makeText(context, "Entry updated!", Toast.LENGTH_SHORT).show()
                         } catch (e: Exception) {

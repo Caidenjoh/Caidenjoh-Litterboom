@@ -154,9 +154,11 @@ fun FieldLoggingScreen(subCategoryId: Int, subCategoryName: String, mainCategory
                     val fileName = "waste_${System.currentTimeMillis()}.jpg"
                     val file = File(context.cacheDir, fileName)
                     FileOutputStream(file).use { out ->
-                        bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 95, out) // Increased quality from 90 to 95
                     }
                     capturedPhotoUri = Uri.fromFile(file)
+                    // Clear current photo URL when new photo is taken (important for edit mode)
+                    currentPhotoUrl = null
                     Toast.makeText(context, "Photo captured successfully", Toast.LENGTH_SHORT).show()
                 } catch (e: Exception) {
                     Toast.makeText(context, "Failed to save photo: ${e.message}", Toast.LENGTH_SHORT).show()
