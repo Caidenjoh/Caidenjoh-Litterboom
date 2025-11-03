@@ -2,6 +2,7 @@ package com.example.litterboom
 
 import android.app.Activity
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
@@ -16,6 +17,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -1493,6 +1495,24 @@ private fun LoggedWasteDetailScreen(event: Event, onBack: () -> Unit) {
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = Color.White
                             )
+                            // Display photo download link if photo exists
+                            if (!waste.photoUrl.isNullOrEmpty()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "📷 Download Photo",
+                                    color = Color.Blue,
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                    modifier = Modifier
+                                        .clickable(
+                                            indication = null,
+                                            interactionSource = null
+                                        ) {
+                                            // Open photo in browser for download
+                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(waste.photoUrl))
+                                            context.startActivity(intent)
+                                        }
+                                )
+                            }
                         }
                     }
                 }
@@ -1737,12 +1757,12 @@ fun AddUserScreen(onBackClick: () -> Unit) {
                                 )
                             }
 
-<<<<<<< Updated upstream
+
                             // Added the Switch
                             var isChecked by remember(user.isActive) { mutableStateOf(user.isActive) }
-=======
+
                             // The Switch
->>>>>>> Stashed changes
+
                             val isAdmin = user.role == "Admin"
 
                             Switch(

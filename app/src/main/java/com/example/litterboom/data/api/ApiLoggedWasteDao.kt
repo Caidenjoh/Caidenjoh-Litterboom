@@ -1,6 +1,7 @@
 package com.example.litterboom.data.api
 
 import com.example.litterboom.data.*
+import okhttp3.ResponseBody
 
 class ApiLoggedWasteDao : LoggedWasteDao {
     override suspend fun insertLoggedWaste(item: LoggedWaste): Long {
@@ -20,7 +21,7 @@ class ApiLoggedWasteDao : LoggedWasteDao {
         }
     }
 
-    override suspend fun uploadPhotoForLoggedWaste(wasteId: Int, base64Image: String): retrofit2.Response<String> {
+    override suspend fun uploadPhotoForLoggedWaste(wasteId: Int, base64Image: String): retrofit2.Response<ResponseBody> {
         return ApiClient.apiService.uploadPhotoForLoggedWaste(wasteId, base64Image)
     }
 

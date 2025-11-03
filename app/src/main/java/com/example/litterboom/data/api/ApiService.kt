@@ -3,6 +3,7 @@ package com.example.litterboom.data.api
 import com.example.litterboom.data.*
 import retrofit2.Response
 import retrofit2.http.*
+import okhttp3.ResponseBody
 
 interface ApiService {
     // Auth
@@ -123,7 +124,7 @@ interface ApiService {
     suspend fun updateLoggedWaste(@Path("id") id: Int, @Body loggedWaste: LoggedWaste): Response<Unit>
 
     @POST("api/LoggedWaste/{id}/photo")
-    suspend fun uploadPhotoForLoggedWaste(@Path("id") id: Int, @Body base64Image: String): Response<String>
+    suspend fun uploadPhotoForLoggedWaste(@Path("id") id: Int, @Body base64Image: String): Response<ResponseBody>
 
     @DELETE("api/LoggedWaste/{id}")
     suspend fun deleteLoggedWaste(@Path("id") id: Int): Response<Unit>

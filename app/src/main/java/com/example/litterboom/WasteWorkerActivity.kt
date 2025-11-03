@@ -284,8 +284,9 @@ fun WasteWorkerContent(contentPadding: PaddingValues, eventName: String, eventId
                                 if (base64Image != null) {
                                     val response = AppDatabase.getDatabase(context).loggedWasteDao().uploadPhotoForLoggedWaste(newId, base64Image)
                                     if (response.isSuccessful) {
-                                        val photoUrl = response.body()
-                                        if (photoUrl != null) {
+                                        val responseBody = response.body()
+                                        val photoUrl = responseBody?.string()
+                                        if (!photoUrl.isNullOrEmpty()) {
                                             // Update the logged waste with the photo URL
                                             val updatedWaste = loggedWaste.copy(id = newId, photoUrl = photoUrl)
                                             AppDatabase.getDatabase(context).loggedWasteDao().updateLoggedWaste(updatedWaste)
