@@ -2,13 +2,11 @@ package com.example.litterboom.ui
 
 import android.Manifest
 import android.app.Activity
-import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
-import android.provider.MediaStore
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -71,48 +69,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import java.util.Locale
 import android.util.Base64
 import java.io.ByteArrayOutputStream
-import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import androidx.compose.ui.platform.LocalContext
-import android.content.ContentResolver
+import java.io.File
+import java.io.FileOutputStream
 
-/**
- * Creates a new image file entry in the MediaStore.
- * This method handles differences between Android versions (specifically for API 29+ using Scoped Storage).
- *
- * @param context The application context.
- * @param directory The subdirectory within the "Pictures" directory where the image will be saved (e.g., "LitterBoom").
- * @return A [Pair] containing a [Boolean] indicating success and the resulting [Uri] if successful.
- */
-private fun createMediaStoreImageUri(
-    context: android.content.Context,
-    directory: String = "LitterBoom"
-): Pair<Boolean, Uri?> {
-    // Check if running on Android Q (API 29) or higher.
-    val isQPlus = Build.VERSION.SDK_INT >= 29
-    // Generate a unique file name based on the current timestamp.
-    val name = "waste_${System.currentTimeMillis()}.jpg"
-    val values = ContentValues().apply {
-        put(MediaStore.Images.Media.DISPLAY_NAME, name)
-        put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-        if (isQPlus) { // For Android Q+, use RELATIVE_PATH and set IS_PENDING.
-            put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/$directory")
-            put(MediaStore.Images.Media.IS_PENDING, 1)
-        }
-        put(MediaStore.Images.Media.DATE_TAKEN, System.currentTimeMillis())
-        put(MediaStore.Images.Media.TITLE, name)
-    }
-    val resolver = context.contentResolver
-    // Determine the correct content URI based on the Android version.
-    val collection: Uri =
-        if (isQPlus) MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-        else MediaStore.Images.Media.EXTERNAL_CONTENT_URI
 
-    // Insert the new image entry into the MediaStore.
-    val uri = runCatching { resolver.insert(collection, values) }.getOrNull()
-    // Return a pair indicating success and the created URI.
-    return (uri != null) to uri
-}
 
 /**
  * Formats a given string to Title Case.
@@ -181,79 +142,55 @@ fun FieldLoggingScreen(subCategoryId: Int, subCategoryName: String, mainCategory
     val isEditMode = loggedWasteId != -1
     var currentPhotoUrl by remember { mutableStateOf<String?>(null) }
     var capturedPhotoUri by remember { mutableStateOf<android.net.Uri?>(null) }
-    var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
 
-    // Camera launcher
+    // Camera launcher - now uses TakePicturePreview for reliable bitmap capture
     val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicture()
-    ) { success ->
-        if (success && pendingCameraUri != null) {
-            capturedPhotoUri = pendingCameraUri
-            // Mark as pending done on Q+
-            if (Build.VERSION.SDK_INT >= 29) {
-                runCatching {
-                    context.contentResolver.update(
-                        pendingCameraUri!!,
-                        ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) },
-                        null, null
-                    )
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap ->
+        if (bitmap != null) {
+            // Save bitmap to internal storage and create URI
+            scope.launch {
+                try {
+                    val fileName = "waste_${System.currentTimeMillis()}.jpg"
+                    val file = File(context.cacheDir, fileName)
+                    FileOutputStream(file).use { out ->
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+                    }
+                    capturedPhotoUri = Uri.fromFile(file)
+                    Toast.makeText(context, "Photo captured successfully", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Failed to save photo: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
-        } else if (pendingCameraUri != null) {
-            // Clean up failed capture
-            runCatching { context.contentResolver.delete(pendingCameraUri!!, null, null) }
+        } else {
+            Toast.makeText(context, "Photo capture cancelled", Toast.LENGTH_SHORT).show()
         }
-        pendingCameraUri = null
     }
 
     // Camera permission launcher
     val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        val cameraGranted = permissions[Manifest.permission.CAMERA] == true
-        val writeGranted = if (Build.VERSION.SDK_INT <= 28) {
-            permissions[Manifest.permission.WRITE_EXTERNAL_STORAGE] == true
-        } else true
-
-        if (cameraGranted && writeGranted) {
-            // Permissions granted, proceed with camera
-            val result = createMediaStoreImageUri(context)
-            if (result.first && result.second != null) {
-                pendingCameraUri = result.second
-                cameraLauncher.launch(result.second!!)
-            } else {
-                Toast.makeText(context, "Cannot create output file", Toast.LENGTH_SHORT).show()
-            }
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            // Camera permission granted, launch camera
+            cameraLauncher.launch(null)
         } else {
-            Toast.makeText(context, "Camera permissions are required", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Camera permission is required", Toast.LENGTH_SHORT).show()
         }
     }
 
     fun requestCamera() {
-        val needsWrite = Build.VERSION.SDK_INT <= 28
         val cameraGranted = ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.CAMERA
         ) == PackageManager.PERMISSION_GRANTED
-        val writeGranted = if (needsWrite) {
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
-            ) == PackageManager.PERMISSION_GRANTED
-        } else true
 
-        if (cameraGranted && writeGranted) {
-            val result = createMediaStoreImageUri(context)
-            if (result.first && result.second != null) {
-                pendingCameraUri = result.second
-                cameraLauncher.launch(result.second!!)
-            } else {
-                Toast.makeText(context, "Cannot create output file", Toast.LENGTH_SHORT).show()
-            }
+        if (cameraGranted) {
+            // Permission already granted, launch camera directly
+            cameraLauncher.launch(null)
         } else {
-            val permissions = mutableListOf(Manifest.permission.CAMERA)
-            if (needsWrite) permissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-            permissionLauncher.launch(permissions.toTypedArray())
+            // Request camera permission
+            permissionLauncher.launch(Manifest.permission.CAMERA)
         }
     }
 
