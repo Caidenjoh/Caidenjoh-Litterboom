@@ -1,5 +1,5 @@
 
-<img width="490" height="490" alt="image" src="https://github.com/user-attachments/assets/74d29c01-a509-4ed7-9098-1807b276c051" />
+<img width="300" height="300" alt="image" src="https://github.com/user-attachments/assets/74d29c01-a509-4ed7-9098-1807b276c051" />
 
 **LitterBoom Mobile Application**
 
